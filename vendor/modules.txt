@@ -1,0 +1,7 @@
+# github.com/go-gl/gl v0.0.0-20211210172815-726fda9656d6
+## explicit; go 1.12
+github.com/go-gl/gl/v3.3-core/gl
+github.com/go-gl/gl/v3.3-core/gl/KHR
+# github.com/veandco/go-sdl2 v0.4.20
+## explicit; go 1.15
+github.com/veandco/go-sdl2/sdl
