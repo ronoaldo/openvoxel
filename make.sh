@@ -18,7 +18,7 @@ for program in exp/cmd/* ; do
     GOOS=windows GOARCH=amd64 \
     go build \
         -o build/$out \
-        -x -v -i \
+        -x -v \
         $program/main.go
     cp ${MING_GW}/bin/SDL2.dll build/
 done
