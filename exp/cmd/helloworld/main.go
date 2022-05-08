@@ -2,10 +2,11 @@ package main
 
 import (
 	"fmt"
+	"runtime"
 	"strings"
 
 	"github.com/go-gl/gl/v3.3-core/gl"
-	"github.com/veandco/go-sdl2/sdl"
+	"github.com/go-gl/glfw/v3.3/glfw"
 )
 
 var (
@@ -13,18 +14,22 @@ var (
 	winHeight int32 = 768
 )
 
+func init() {
+	runtime.LockOSThread()
+}
+
 func main() {
-	if err := sdl.Init(sdl.INIT_EVERYTHING); err != nil {
+	if err := glfw.Init(); err != nil {
 		panic(err)
 	}
-	defer sdl.Quit()
+	defer glfw.Terminate()
 
-	window, err := sdl.CreateWindow("Hello Triangles", 200, 200, winWidth, winHeight, sdl.WINDOW_OPENGL)
+	window, err := glfw.CreateWindow(int(winWidth), int(winHeight), "Hello World", nil, nil)
 	if err != nil {
 		panic(err)
 	}
-	window.GLCreateContext()
-	defer window.Destroy()
+
+	window.MakeContextCurrent()
 
 	gl.Init()
 	version := gl.GoStr(gl.GetString(gl.VERSION))
@@ -114,14 +119,7 @@ func main() {
 	gl.EnableVertexAttribArray(0)
 	gl.BindVertexArray(0)
 
-	for {
-		for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
-			switch event.(type) {
-			case *sdl.QuitEvent:
-				return
-			}
-		}
-
+	for !window.ShouldClose() {
 		gl.ClearColor(0.0, 0.0, 0.0, 0.0)
 		gl.Clear(gl.COLOR_BUFFER_BIT)
 
@@ -129,6 +127,7 @@ func main() {
 		gl.BindVertexArray(VAO)
 		gl.DrawArrays(gl.TRIANGLES, 0, 3)
 
-		window.GLSwap()
+		window.SwapBuffers()
+		glfw.PollEvents()
 	}
 }
