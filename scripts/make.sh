@@ -1,12 +1,22 @@
 #!/bin/sh
 
+_NAME=$(readlink -f $0)
+_DIR=$(dirname $_NAME)
+cd $_DIR/..
+
+echo "Building into $PWD/build ..."
 mkdir -p build
 rm -rvf build/*
+
+if [ x"$DEBUG" = x"true" ] ; then 
+	export GO_BUILD_FLAGS='-x -v'
+	set -x
+fi
 
 go_build() {
     export PROG=$1 OS=$2 ARCH=$3
     export OUT="$(basename ${PROG})_${OS}_${ARCH}"
-    echo "Building ${PROG} for ${OS}/${ARCH} into ${OUT}..."
+    echo "** Building ${PROG} for ${OS}/${ARCH} into ${OUT}... **"
 
     export GOOS=$OS GOARCH=$ARCH CC= CXX=
     case $OS in
@@ -25,12 +35,15 @@ go_build() {
         ;;
     esac
     env CGO_ENABLED=1 CC=$CC CXX=$CXX GOOS=$GOOS GOARCH=$GOARCH \
-        go build -x -v -o build/${OUT} ${PROG}/main.go
+        go build ${GO_BUILD_FLAGS} -o build/${OUT} ${PROG}/main.go &&\
+	echo "** Binary created at ${OUT} **" ||\
+	echo "** Build failed **"
 }
 
 go_build exp/cmd/helloworld windows amd64
 go_build exp/cmd/helloworld windows 386
+
 go_build exp/cmd/helloworld linux amd64
-# go_build exp/cmd/helloworld linux 386 - failing currently
-# go_build exp/cmd/helloworld linux arm - failing currently
-# go_build exp/cmd/helloworld linux arm64 - failing currently
+go_build exp/cmd/helloworld linux 386
+go_build exp/cmd/helloworld linux arm
+go_build exp/cmd/helloworld linux arm64

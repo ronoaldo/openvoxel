@@ -3,10 +3,10 @@ package main
 import (
 	"fmt"
 	"runtime"
-	"strings"
 
 	"github.com/go-gl/gl/v3.3-core/gl"
 	"github.com/go-gl/glfw/v3.3/glfw"
+	"github.com/ronoaldo/openvoxel/glh"
 )
 
 var (
@@ -28,12 +28,11 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-
 	window.MakeContextCurrent()
 
+	// Initialize
 	gl.Init()
-	version := gl.GoStr(gl.GetString(gl.VERSION))
-	fmt.Println("OpenGL Version:", version)
+	fmt.Println("OpenGL Version:", glh.GetVersion())
 
 	// Vertex Shader
 	vertexShaderSrc :=
@@ -42,21 +41,10 @@ func main() {
 		void main() {
 			gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);
 		}`
-	vertexShader := gl.CreateShader(gl.VERTEX_SHADER)
-	csource, free := gl.Strs(vertexShaderSrc)
-	gl.ShaderSource(vertexShader, 1, csource, nil)
-	free()
-	gl.CompileShader(vertexShader)
-	var status int32
-	gl.GetShaderiv(vertexShader, gl.COMPILE_STATUS, &status)
-	if status == gl.FALSE {
-		var logLength int32
-		gl.GetShaderiv(vertexShader, gl.INFO_LOG_LENGTH, &logLength)
-		log := strings.Repeat("\x00", int(logLength+1))
-		gl.GetShaderInfoLog(vertexShader, logLength, nil, gl.Str(log))
-		panic("Failed to compile vertex shader: \n" + log)
+	vertexShader, err := glh.CompileShader(vertexShaderSrc, gl.VERTEX_SHADER)
+	if err != nil {
+		panic(err)
 	}
-	fmt.Printf("Vertex compiled with success (status=%v)\n", status)
 
 	// Fragment Shader
 	fragmentShaderSrc :=
@@ -64,40 +52,17 @@ func main() {
 		out vec4 FragColor;
 		void main() {
 			FragColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);
-		}` + "\x00"
+		}`
 
-	fragmentShader := gl.CreateShader(gl.FRAGMENT_SHADER)
-	csource, free = gl.Strs(fragmentShaderSrc)
-	gl.ShaderSource(fragmentShader, 1, csource, nil)
-	free()
-	gl.CompileShader(fragmentShader)
-	gl.GetShaderiv(fragmentShader, gl.COMPILE_STATUS, &status)
-	if status == gl.FALSE {
-		var logLength int32
-		gl.GetShaderiv(fragmentShader, gl.INFO_LOG_LENGTH, &logLength)
-		log := strings.Repeat("\x00", int(logLength+1))
-		gl.GetShaderInfoLog(fragmentShader, logLength, nil, gl.Str(log))
-		panic("Failed to compile fragment shader: \n" + log)
+	fragmentShader, err := glh.CompileShader(fragmentShaderSrc, gl.FRAGMENT_SHADER)
+	if err != nil {
+		panic(err)
 	}
-	fmt.Printf("Fragment compiled with success (status=%v)\n", status)
 
-	shaderProgram := gl.CreateProgram()
-	gl.AttachShader(shaderProgram, vertexShader)
-	gl.AttachShader(shaderProgram, fragmentShader)
-	gl.LinkProgram(shaderProgram)
-	gl.GetProgramiv(shaderProgram, gl.LINK_STATUS, &status)
-	if status == gl.FALSE {
-		var logLength int32
-		gl.GetShaderiv(shaderProgram, gl.INFO_LOG_LENGTH, &logLength)
-		log := strings.Repeat("\x00", int(logLength+1))
-		gl.GetShaderInfoLog(fragmentShader, logLength, nil, gl.Str(log))
-		panic("Failed to compile fragment shader: \n" + log)
+	shaderProgram, err := glh.LinkProgram(vertexShader, fragmentShader)
+	if err != nil {
+		panic(err)
 	}
-	fmt.Printf("Shader program linked properly (status=%v)\n", status)
-
-	gl.DeleteShader(vertexShader)
-	gl.DeleteShader(fragmentShader)
-	fmt.Println("Shaders freed to release resources.")
 
 	vertices := []float32{
 		-0.5, -0.5, 0.0,
