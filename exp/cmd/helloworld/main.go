@@ -1,12 +1,12 @@
 package main
 
 import (
-	"fmt"
 	"runtime"
 
 	"github.com/go-gl/gl/v3.3-core/gl"
 	"github.com/go-gl/glfw/v3.3/glfw"
-	"github.com/ronoaldo/openvoxel/glh"
+	"github.com/ronoaldo/openvoxel/log"
+	"github.com/ronoaldo/openvoxel/render"
 )
 
 var (
@@ -32,16 +32,16 @@ func main() {
 
 	// Initialize
 	gl.Init()
-	fmt.Println("OpenGL Version:", glh.GetVersion())
+	log.Infof("OpenGL Version: %v", render.Version())
 
 	// Vertex Shader
 	vertexShaderSrc :=
 		`#version 330 core
 		layout (location = 0) in vec3 aPos;
 		void main() {
-			gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);
+			gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0f);
 		}`
-	vertexShader, err := glh.CompileShader(vertexShaderSrc, gl.VERTEX_SHADER)
+	vertexShader, err := render.CompileShader(vertexShaderSrc, gl.VERTEX_SHADER)
 	if err != nil {
 		panic(err)
 	}
@@ -54,45 +54,66 @@ func main() {
 			FragColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);
 		}`
 
-	fragmentShader, err := glh.CompileShader(fragmentShaderSrc, gl.FRAGMENT_SHADER)
+	fragmentShader, err := render.CompileShader(fragmentShaderSrc, gl.FRAGMENT_SHADER)
 	if err != nil {
 		panic(err)
 	}
 
-	shaderProgram, err := glh.LinkProgram(vertexShader, fragmentShader)
+	shaderProgram, err := render.LinkProgram(vertexShader, fragmentShader)
 	if err != nil {
 		panic(err)
 	}
 
 	vertices := []float32{
-		-0.5, -0.5, 0.0,
-		0.5, -0.5, 0.0,
-		0.0, 0.5, 0.0,
+		+0.5, +0.5, 0.0, // top right
+		+0.5, -0.5, 0.0, // bottom right
+		-0.5, -0.5, 0.0, // bottom left
+		-0.5, +0.5, 0.0, // top left
 	}
-	fmt.Println("Rendering Vertices:", vertices)
+	indices := []uint32{
+		0, 1, 3, // first triangle
+		1, 2, 3, // second triangle
+	}
+	log.Infof("Rendering Vertices: %#v", vertices)
 
-	var VBO uint32
-	gl.GenBuffers(1, &VBO)
-	gl.BindBuffer(gl.ARRAY_BUFFER, VBO)
 	var VAO uint32
 	gl.GenBuffers(1, &VAO)
 	gl.BindVertexArray(VAO)
 
+	var VBO uint32
+	gl.GenBuffers(1, &VBO)
+	gl.BindBuffer(gl.ARRAY_BUFFER, VBO)
 	gl.BufferData(gl.ARRAY_BUFFER, len(vertices)*4, gl.Ptr(vertices), gl.STATIC_DRAW)
+
+	var EBO uint32
+	gl.GenBuffers(1, &EBO)
+	gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, EBO)
+	gl.BufferData(gl.ELEMENT_ARRAY_BUFFER, len(indices)*4, gl.Ptr(indices), gl.STATIC_DRAW)
+
 	gl.VertexAttribPointer(0, 3, gl.FLOAT, false, 3*4, nil)
 
 	gl.EnableVertexAttribArray(0)
 	gl.BindVertexArray(0)
 
 	for !window.ShouldClose() {
-		gl.ClearColor(0.0, 0.0, 0.0, 0.0)
+		processInput(window)
+
+		gl.ClearColor(0.2, 0.3, 0.3, 1.0)
 		gl.Clear(gl.COLOR_BUFFER_BIT)
 
 		gl.UseProgram(shaderProgram)
 		gl.BindVertexArray(VAO)
-		gl.DrawArrays(gl.TRIANGLES, 0, 3)
+		gl.PolygonMode(gl.FRONT_AND_BACK, gl.LINE)
+		gl.DrawElements(gl.TRIANGLES, 6, gl.UNSIGNED_INT, nil)
 
 		window.SwapBuffers()
 		glfw.PollEvents()
+	}
+}
+
+func processInput(window *glfw.Window) {
+	if window.GetKey(glfw.KeyEscape) == glfw.Press {
+		log.Infof("ESC key pressed. Exiting...")
+		window.SetShouldClose(true)
 	}
 }

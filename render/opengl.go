@@ -1,20 +1,23 @@
-// package glh implements some OpenGL helpers and wrappers for more idiomatic go.
-package glh
+// package render implements OpenGL rendering logic and wrappers.
+package render
 
 import (
 	"errors"
-	"fmt"
 	"strings"
 
 	"github.com/go-gl/gl/v3.3-core/gl"
+	"github.com/ronoaldo/openvoxel/log"
 )
 
-func GetVersion() string {
+// Version returns the OpengGL Version
+func Version() string {
 	return gl.GoStr(gl.GetString(gl.VERSION))
 }
 
+// CompileShader takes a GLSL shader source string and type and compiles it.
+// It returns the shader pointer or an error if the compilation failed.
 func CompileShader(shaderSource string, shaderType uint32) (uint32, error) {
-	fmt.Printf("Compiling \n%s\n...", shaderSource)
+	log.Infof("Compiling shader (type=%v): %#s", shaderType, shaderSource)
 	shader := gl.CreateShader(shaderType)
 	csource, free := gl.Strs(shaderSource + "\x00")
 	gl.ShaderSource(shader, 1, csource, nil)
@@ -27,16 +30,18 @@ func CompileShader(shaderSource string, shaderType uint32) (uint32, error) {
 		gl.GetShaderiv(shader, gl.INFO_LOG_LENGTH, &logLength)
 		log := strings.Repeat("\x00", int(logLength+1))
 		gl.GetShaderInfoLog(shader, logLength, nil, gl.Str(log))
-		return 0, errors.New("Failed to compile shader: \n" + log)
+		return 0, errors.New("Failed to compile shader: " + log)
 	}
-	fmt.Printf("Shader compiled (status=%v)\n", status)
+	log.Infof("Shader compiled (status=%v)", status)
 	return shader, nil
 }
 
-func LinkProgram(vertexShader, fragmentShader uint32) (uint32, error) {
+// LinkProgram takes an array of compiled shaders and link them into a usable program.
+func LinkProgram(shaders ...uint32) (uint32, error) {
 	shaderProgram := gl.CreateProgram()
-	gl.AttachShader(shaderProgram, vertexShader)
-	gl.AttachShader(shaderProgram, fragmentShader)
+	for _, shader := range shaders {
+		gl.AttachShader(shaderProgram, shader)
+	}
 	gl.LinkProgram(shaderProgram)
 
 	var status int32
@@ -48,9 +53,10 @@ func LinkProgram(vertexShader, fragmentShader uint32) (uint32, error) {
 		gl.GetProgramInfoLog(shaderProgram, logLength, nil, gl.Str(log))
 		return 0, errors.New("Failed to create shader program: \n" + log)
 	}
-	fmt.Printf("Shader program linked properly (status=%v)\n", status)
-	fmt.Println("Freeing shader resources ...")
-	gl.DeleteShader(vertexShader)
-	gl.DeleteShader(fragmentShader)
+	log.Infof("Shader program linked properly (status=%v)", status)
+	log.Infof("Freeing shader resources ...")
+	for _, shader := range shaders {
+		gl.DeleteShader(shader)
+	}
 	return shaderProgram, nil
 }
