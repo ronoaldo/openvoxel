@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"runtime"
 
 	"github.com/go-gl/gl/v3.3-core/gl"
@@ -12,6 +13,8 @@ import (
 var (
 	winWidth  int32 = 1024
 	winHeight int32 = 768
+
+	wireFrames bool
 )
 
 func init() {
@@ -29,39 +32,21 @@ func main() {
 		panic(err)
 	}
 	window.MakeContextCurrent()
+	window.SetInputMode(glfw.StickyKeysMode, glfw.True)
+	window.SetFramebufferSizeCallback(func(w *glfw.Window, width, height int) {
+		gl.Viewport(0, 0, int32(width), int32(height))
+	})
 
 	// Initialize
 	gl.Init()
 	log.Infof("OpenGL Version: %v", render.Version())
 
 	// Vertex Shader
-	vertexShaderSrc :=
-		`#version 330 core
-		layout (location = 0) in vec3 aPos;
-		void main() {
-			gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0f);
-		}`
-	vertexShader, err := render.CompileShader(vertexShaderSrc, gl.VERTEX_SHADER)
-	if err != nil {
-		panic(err)
-	}
-
-	// Fragment Shader
-	fragmentShaderSrc :=
-		`#version 330 core
-		out vec4 FragColor;
-		void main() {
-			FragColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);
-		}`
-
-	fragmentShader, err := render.CompileShader(fragmentShaderSrc, gl.FRAGMENT_SHADER)
-	if err != nil {
-		panic(err)
-	}
-
-	shaderProgram, err := render.LinkProgram(vertexShader, fragmentShader)
-	if err != nil {
-		panic(err)
+	shader := &render.Shader{}
+	shader.VertexShader("shaders/vertex.glsl").FragmentShader("shaders/fragment.glsl")
+	if err := shader.Link(); err != nil {
+		log.Warnf("error linking shader program: %v", err)
+		os.Exit(1)
 	}
 
 	vertices := []float32{
@@ -101,9 +86,13 @@ func main() {
 		gl.ClearColor(0.2, 0.3, 0.3, 1.0)
 		gl.Clear(gl.COLOR_BUFFER_BIT)
 
-		gl.UseProgram(shaderProgram)
+		shader.Use()
 		gl.BindVertexArray(VAO)
-		gl.PolygonMode(gl.FRONT_AND_BACK, gl.LINE)
+		if wireFrames {
+			gl.PolygonMode(gl.FRONT_AND_BACK, gl.LINE)
+		} else {
+			gl.PolygonMode(gl.FRONT_AND_BACK, gl.FILL)
+		}
 		gl.DrawElements(gl.TRIANGLES, 6, gl.UNSIGNED_INT, nil)
 
 		window.SwapBuffers()
@@ -115,5 +104,10 @@ func processInput(window *glfw.Window) {
 	if window.GetKey(glfw.KeyEscape) == glfw.Press {
 		log.Infof("ESC key pressed. Exiting...")
 		window.SetShouldClose(true)
+	}
+
+	if window.GetKey(glfw.KeyF10) == glfw.Press {
+		log.Infof("F10 key pressed. Flipping wireframe mode...")
+		wireFrames = !wireFrames
 	}
 }
