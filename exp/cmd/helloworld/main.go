@@ -1,6 +1,7 @@
 package main
 
 import (
+	"math"
 	"os"
 	"runtime"
 
@@ -21,7 +22,7 @@ func init() {
 
 func main() {
 	log.Infof("Initializing main window")
-	window, err := render.NewWindow(winWidth, winHeight, "Hello World")
+	window, err := render.NewWindow(winWidth, winHeight, "LearnOpenGL.com")
 	if err != nil {
 		log.Warnf("Unable to open new window: %v", err)
 	}
@@ -29,17 +30,18 @@ func main() {
 	log.Infof("Rendering Backend: %v", render.Version())
 
 	shader := &render.Shader{}
-	shader.VertexShader("shaders/vertex.glsl").FragmentShader("shaders/fragment.glsl")
+	shader.VertexShaderFile("shaders/vertex.glsl").FragmentShaderFile("shaders/fragment.glsl")
 	if err := shader.Link(); err != nil {
 		log.Warnf("error linking shader program: %v", err)
 		os.Exit(1)
 	}
 
 	vertices := []float32{
-		+0.5, +0.5, 0.0, // top right
-		+0.5, -0.5, 0.0, // bottom right
-		-0.5, -0.5, 0.0, // bottom left
-		-0.5, +0.5, 0.0, // top left
+		// positions     // colors
+		+0.5, +0.5, 0.0, 1.0, 0.0, 0.0, // top right
+		+0.5, -0.5, 0.0, 0.0, 1.0, 0.0, // bottom right
+		-0.5, -0.5, 0.0, 0.0, 0.0, 1.0, // bottom left
+		-0.5, +0.5, 0.0, 1.0, 0.0, 0.0, // top left
 	}
 	indices := []uint32{
 		0, 1, 3, // first triangle
@@ -50,6 +52,10 @@ func main() {
 
 	// Main program loop
 	for !window.ShouldClose() {
+		t := render.Time()
+		greenValue := math.Sin(t)/2.0 + 0.5
+		shader.UniformFloats("progressiveColor", 0.0, float32(greenValue), 0.0, 1.0)
+
 		window.Scene().Draw(shader)
 		window.SwapBuffers()
 		window.PollEvents()

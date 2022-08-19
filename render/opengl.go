@@ -3,9 +3,11 @@ package render
 
 import (
 	"errors"
+	"fmt"
 	"image/color"
 	"io/ioutil"
 	"strings"
+	"unsafe"
 
 	"github.com/go-gl/gl/v3.3-core/gl"
 	"github.com/go-gl/glfw/v3.3/glfw"
@@ -15,6 +17,11 @@ import (
 // Version returns the OpengGL version as reported by the driver.
 func Version() string {
 	return gl.GoStr(gl.GetString(gl.VERSION))
+}
+
+// Time returns the time in miliseconds since the window was initialized.
+func Time() float64 {
+	return glfw.GetTime()
 }
 
 // Window handles the basic GUI and Input event handling.
@@ -45,6 +52,12 @@ func NewWindow(width, height int, title string) (*Window, error) {
 	if err := glfw.Init(); err != nil {
 		return nil, err
 	}
+	// Use 3.3 Core Profile
+	glfw.WindowHint(glfw.Resizable, glfw.True)
+	glfw.WindowHint(glfw.ContextVersionMajor, 3)
+	glfw.WindowHint(glfw.ContextVersionMinor, 3)
+	glfw.WindowHint(glfw.OpenGLProfile, glfw.OpenGLCoreProfile)
+	glfw.WindowHint(glfw.OpenGLForwardCompatible, glfw.True)
 
 	// Use glfw to create a new window
 	window, err := glfw.CreateWindow(int(width), int(height), title, nil, nil)
@@ -127,35 +140,61 @@ type Shader struct {
 
 // VertexShader appends the provider shader file to the pipeline. This method
 // returns the Shader reference to allow for chaining.
-func (s *Shader) VertexShader(path string) *Shader {
+func (s *Shader) VertexShaderFile(path string) *Shader {
 	s.shaderFiles = append(s.shaderFiles, shaderFile{path, gl.VERTEX_SHADER})
 	return s
 }
 
 // FragmentShader appends the provided shader file to the pipeline. This method
 // returns the Shader reference to allow for chaining.
-func (s *Shader) FragmentShader(path string) *Shader {
+func (s *Shader) FragmentShaderFile(path string) *Shader {
 	s.shaderFiles = append(s.shaderFiles, shaderFile{path, gl.FRAGMENT_SHADER})
 	return s
 }
 
+var shaderNotLinkedError = errors.New("shader: invalid state: uniform called before Link()")
+
 // UniformInt adds the provided int value as a GLSL uniform with the given
 // name.  Returns an error if the shader was not linked.
-func (s *Shader) UniformInt(name string, value int32) error {
+func (s *Shader) UniformInts(name string, v ...int32) error {
 	if s.program == nil {
-		return errors.New("shader: invalid state: uniform called before Link()")
+		return shaderNotLinkedError
 	}
-	gl.Uniform1i(gl.GetUniformLocation(*s.program, gl.Str(name+"\x00")), value)
+	loc := gl.GetUniformLocation(*s.program, gl.Str(name+"\x00"))
+	switch len(v) {
+	case 1:
+		gl.Uniform1i(loc, v[0])
+	case 2:
+		gl.Uniform2i(loc, v[0], v[1])
+	case 3:
+		gl.Uniform3i(loc, v[0], v[1], v[2])
+	case 4:
+		gl.Uniform4i(loc, v[0], v[1], v[2], v[3])
+	default:
+		return fmt.Errorf("invalid argument count: %v, expected up to 4 values", len(v))
+	}
 	return nil
 }
 
 // UniformFloat adds the provided float value as a GLSL uniform with the given
 // name.  Returns an error if the program was not linked.
-func (s *Shader) UniformFloat(name string, value float32) error {
+func (s *Shader) UniformFloats(name string, v ...float32) error {
 	if s.program == nil {
-		return errors.New("shader: invalid state: uniform called before Link()")
+		return shaderNotLinkedError
 	}
-	gl.Uniform1f(gl.GetUniformLocation(*s.program, gl.Str(name+"\x00")), value)
+	loc := gl.GetUniformLocation(*s.program, gl.Str(name+"\x00"))
+	switch len(v) {
+	case 1:
+		gl.Uniform1f(loc, v[0])
+	case 2:
+		gl.Uniform2f(loc, v[0], v[1])
+	case 3:
+		gl.Uniform3f(loc, v[0], v[1], v[2])
+	case 4:
+		gl.Uniform4f(loc, v[0], v[1], v[2], v[3])
+	default:
+		return fmt.Errorf("invalid argument count: %v, expected up to 4 values", len(v))
+	}
 	return nil
 }
 
@@ -254,8 +293,11 @@ func (s *Shader) linkProgram(shaders ...uint32) (uint32, error) {
 // driver.
 type Scene struct {
 	vao *uint32
+
 	vbo *uint32
-	ebo *uint32
+
+	ebo     *uint32
+	eboSize int32
 
 	clearColor color.Color
 	wireFrames bool
@@ -273,28 +315,40 @@ func (s *Scene) allocateBuffers() {
 		s.vao = new(uint32)
 		s.vbo = new(uint32)
 		s.ebo = new(uint32)
-		gl.GenBuffers(1, s.vao)
+		gl.GenVertexArrays(1, s.vao)
 		gl.GenBuffers(1, s.vbo)
 		gl.GenBuffers(1, s.ebo)
 	}
 }
 
+var sizeOfFloat32 = int(unsafe.Sizeof(float32(0)))
+
 // AddTriangles adds the provided vertices and indices to the current scene.
 func (s *Scene) AddTriangles(vertices []float32, indices []uint32) {
+	log.Infof("Float size: %v", sizeOfFloat32)
 	s.allocateBuffers()
 
 	gl.BindVertexArray(*s.vao)
 
 	gl.BindBuffer(gl.ARRAY_BUFFER, *s.vbo)
-	gl.BufferData(gl.ARRAY_BUFFER, len(vertices)*4, gl.Ptr(vertices), gl.STATIC_DRAW)
+	gl.BufferData(gl.ARRAY_BUFFER, len(vertices)*sizeOfFloat32, gl.Ptr(vertices), gl.STATIC_DRAW)
 
 	gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, *s.ebo)
-	gl.BufferData(gl.ELEMENT_ARRAY_BUFFER, len(indices)*4, gl.Ptr(indices), gl.STATIC_DRAW)
+	gl.BufferData(gl.ELEMENT_ARRAY_BUFFER, len(indices)*sizeOfFloat32, gl.Ptr(indices), gl.STATIC_DRAW)
+	s.eboSize += int32(len(indices))
 
-	// TODO(ronoaldo): 3 should be ... what???
-	gl.VertexAttribPointer(0, 3, gl.FLOAT, false, 3*4, nil)
+	// Type soup!
+	elementSize := int32(3)
+	elementCount := int32(2)
+	stride := elementCount * elementSize * int32(sizeOfFloat32)
+	offset := int32(elementSize) * int32(sizeOfFloat32)
 
+	// Configure the vertex array attributes - first is vertices, second is color.
+	gl.VertexAttribPointer(0, elementSize, gl.FLOAT, false, stride, nil)
 	gl.EnableVertexAttribArray(0)
+	gl.VertexAttribPointerWithOffset(1, elementSize, gl.FLOAT, false, stride, uintptr(offset))
+	gl.EnableVertexAttribArray(1)
+
 	gl.BindVertexArray(0)
 }
 
@@ -319,12 +373,11 @@ func (s *Scene) Draw(shader *Shader) {
 	if shader != nil {
 		shader.Use()
 	}
-
 	if s.wireFrames {
 		gl.PolygonMode(gl.FRONT_AND_BACK, gl.LINE)
 	} else {
 		gl.PolygonMode(gl.FRONT_AND_BACK, gl.FILL)
 	}
-
-	gl.DrawElements(gl.TRIANGLES, 6, gl.UNSIGNED_INT, nil)
+	gl.DrawElements(gl.TRIANGLES, s.eboSize, gl.UNSIGNED_INT, nil)
+	gl.BindVertexArray(0)
 }
