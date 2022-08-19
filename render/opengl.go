@@ -2,13 +2,20 @@
 package render
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"image"
 	"image/color"
+	"image/draw"
 	"io/ioutil"
 	"strings"
 	"unsafe"
 
+	_ "image/jpeg"
+	_ "image/png"
+
+	"github.com/disintegration/imaging"
 	"github.com/go-gl/gl/v3.3-core/gl"
 	"github.com/go-gl/glfw/v3.3/glfw"
 	"github.com/ronoaldo/openvoxel/log"
@@ -301,6 +308,8 @@ type Scene struct {
 
 	clearColor color.Color
 	wireFrames bool
+
+	tex *Texture
 }
 
 // NewScene initializes an empty scene with the proper memory allocations.
@@ -321,6 +330,7 @@ func (s *Scene) allocateBuffers() {
 	}
 }
 
+// 4
 var sizeOfFloat32 = int(unsafe.Sizeof(float32(0)))
 
 // AddTriangles adds the provided vertices and indices to the current scene.
@@ -337,19 +347,22 @@ func (s *Scene) AddTriangles(vertices []float32, indices []uint32) {
 	gl.BufferData(gl.ELEMENT_ARRAY_BUFFER, len(indices)*sizeOfFloat32, gl.Ptr(indices), gl.STATIC_DRAW)
 	s.eboSize += int32(len(indices))
 
-	// Type soup!
-	elementSize := int32(3)
-	elementCount := int32(2)
-	stride := elementCount * elementSize * int32(sizeOfFloat32)
-	offset := int32(elementSize) * int32(sizeOfFloat32)
-
-	// Configure the vertex array attributes - first is vertices, second is color.
-	gl.VertexAttribPointer(0, elementSize, gl.FLOAT, false, stride, nil)
+	// Configure the vertex array attributes
+	// [0] => positions size=3, stride=8*float, offset=0
+	gl.VertexAttribPointer(0, 3, gl.FLOAT, false, 8*4, nil)
 	gl.EnableVertexAttribArray(0)
-	gl.VertexAttribPointerWithOffset(1, elementSize, gl.FLOAT, false, stride, uintptr(offset))
+	// [1] => color     size=3,  stride=8*float, offset=3*float
+	gl.VertexAttribPointerWithOffset(1, 3, gl.FLOAT, false, 8*4, 3*4)
 	gl.EnableVertexAttribArray(1)
+	// [2] => text coord size=2, stride=8*float, offset=6*float
+	gl.VertexAttribPointerWithOffset(2, 2, gl.FLOAT, false, 8*4, 6*4)
+	gl.EnableVertexAttribArray(2)
 
 	gl.BindVertexArray(0)
+}
+
+func (s *Scene) AddTexture(tex *Texture) {
+	s.tex = tex
 }
 
 // Draw calls the underlying driver to render the scene graph on the current
@@ -360,6 +373,7 @@ func (s *Scene) AddTriangles(vertices []float32, indices []uint32) {
 func (s *Scene) Draw(shader *Shader) {
 	s.allocateBuffers()
 
+	// Clear
 	if s.clearColor == nil {
 		s.clearColor = color.Black
 	}
@@ -367,17 +381,86 @@ func (s *Scene) Draw(shader *Shader) {
 	gl.ClearColor(float32(r), float32(g), float32(b), float32(a))
 	gl.Clear(gl.COLOR_BUFFER_BIT)
 
-	gl.BindVertexArray(*s.vao)
 	// TODO: use a default minimal shader program if no other shaders where specified
 	// since OpenGL requires a fragment and a vertex shader at a minimum.
 	if shader != nil {
 		shader.Use()
 	}
+
+	gl.BindVertexArray(*s.vao)
+
+	gl.ActiveTexture(gl.TEXTURE0)
+	gl.BindTexture(gl.TEXTURE_2D, s.tex.tex)
+
 	if s.wireFrames {
 		gl.PolygonMode(gl.FRONT_AND_BACK, gl.LINE)
 	} else {
 		gl.PolygonMode(gl.FRONT_AND_BACK, gl.FILL)
 	}
+
 	gl.DrawElements(gl.TRIANGLES, s.eboSize, gl.UNSIGNED_INT, nil)
 	gl.BindVertexArray(0)
+}
+
+type Texture struct {
+	tex    uint32
+	path   string
+	pixels []uint8
+}
+
+func NewTexture(path string) (t *Texture, err error) {
+	// TODO(ronoaldo): check for image cache and return the same texture loaded previously
+	w, h, pixels, err := readImage(path)
+	if err != nil {
+		return nil, err
+	}
+	// Load the texture into OpenGL
+	t = &Texture{
+		path:   path,
+		pixels: pixels,
+	}
+	gl.GenTextures(1, &t.tex)
+	gl.ActiveTexture(gl.TEXTURE0)
+	gl.BindTexture(gl.TEXTURE_2D, t.tex)
+
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+
+	gl.TexImage2D(gl.TEXTURE_2D,
+		0,
+		gl.RGBA,
+		int32(w),
+		int32(h),
+		0,
+		gl.RGBA,
+		gl.UNSIGNED_BYTE,
+		gl.Ptr(pixels))
+	gl.GenerateMipmap(gl.TEXTURE_2D)
+	return t, nil
+}
+
+func readImage(path string) (w, h int, px []uint8, err error) {
+	b, err := ioutil.ReadFile(path)
+	if err != nil {
+		return 0, 0, nil, err
+	}
+
+	img, ftype, err := image.Decode(bytes.NewReader(b))
+	if err != nil {
+		return 0, 0, nil, err
+	}
+	img = imaging.FlipV(img)
+	w, h = img.Bounds().Size().X, img.Bounds().Size().Y
+	log.Infof("Loaded %v image (%dx%d) from file %v", ftype, w, h, path)
+
+	// Create pixel data from PNG
+	rgba := image.NewRGBA(img.Bounds())
+	if rgba.Stride != rgba.Rect.Size().X*4 {
+		return 0, 0, nil, fmt.Errorf("unsupported stride")
+	}
+	draw.Draw(rgba, rgba.Bounds(), img, image.Point{0, 0}, draw.Src)
+
+	return rgba.Rect.Size().X, rgba.Rect.Size().Y, rgba.Pix, nil
 }

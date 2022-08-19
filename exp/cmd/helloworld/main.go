@@ -37,11 +37,11 @@ func main() {
 	}
 
 	vertices := []float32{
-		// positions     // colors
-		+0.5, +0.5, 0.0, 1.0, 0.0, 0.0, // top right
-		+0.5, -0.5, 0.0, 0.0, 1.0, 0.0, // bottom right
-		-0.5, -0.5, 0.0, 0.0, 0.0, 1.0, // bottom left
-		-0.5, +0.5, 0.0, 1.0, 0.0, 0.0, // top left
+		// positions     // colors      // tex coords
+		+0.5, +0.5, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0, // top right
+		+0.5, -0.5, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, // bottom right
+		-0.5, -0.5, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, // bottom left
+		-0.5, +0.5, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, // top left
 	}
 	indices := []uint32{
 		0, 1, 3, // first triangle
@@ -49,6 +49,13 @@ func main() {
 	}
 	log.Infof("Rendering Vertices: %#v (indices: %#v)", vertices, indices)
 	window.Scene().AddTriangles(vertices, indices)
+
+	tex, err := render.NewTexture("textures/dirt.png")
+	if err != nil {
+		log.Warnf("Error loading texture: %v", err)
+		os.Exit(1)
+	}
+	window.Scene().AddTexture(tex)
 
 	// Main program loop
 	for !window.ShouldClose() {
