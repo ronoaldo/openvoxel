@@ -1,12 +1,14 @@
 #!/bin/sh
 
+OPENVOXEL_ARCHS=${OPENVOXEL_ARCHS:-amd64 arm64}
+
 if [ x"$(id -u)" != x"0" ] ; then
     echo "Should be executed as root."
     exit 1
 fi
 
 echo "Adding all architectures"
-for arch in amd64 arm64 ; do
+for arch in ${OPENVOXEL_ARCHS} ; do
     dpkg --add-architecture $arch
 done
 apt-get update
@@ -22,7 +24,7 @@ apt-get install gcc g++ pkg-config \
 
 echo "Installing required libraries"
 export LIBS=""
-for arch in amd64 arm64 ; do
+for arch in ${OPENVOXEL_ARCHS} ; do
     export LIBS="${LIBS} libgl1-mesa-dev:${arch} libglfw3-dev:${arch} \
         libxxf86vm-dev:${arch} libxinerama-dev:${arch} \
         libxi-dev:${arch} libx11-dev:${arch} libxcursor-dev:${arch} \
