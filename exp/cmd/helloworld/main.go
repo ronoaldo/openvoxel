@@ -7,13 +7,12 @@ import (
 
 	"github.com/ronoaldo/openvoxel/log"
 	"github.com/ronoaldo/openvoxel/render"
+	"github.com/ronoaldo/openvoxel/transform"
 )
 
 var (
-	winWidth  int = 1024
+	winWidth  int = 768
 	winHeight int = 768
-
-	wireFrames bool
 )
 
 func init() {
@@ -62,6 +61,9 @@ func main() {
 		t := render.Time()
 		greenValue := math.Sin(t)/2.0 + 0.5
 		shader.UniformFloats("progressiveColor", 0.0, float32(greenValue), 0.0, 1.0)
+
+		ang := transform.RadToDeg(float32(t))
+		shader.UniformTransformation("transform", transform.Rotate(ang))
 
 		window.Scene().Draw(shader)
 		window.SwapBuffers()

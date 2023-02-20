@@ -18,6 +18,7 @@ import (
 	"github.com/disintegration/imaging"
 	"github.com/go-gl/gl/v3.3-core/gl"
 	"github.com/go-gl/glfw/v3.3/glfw"
+	"github.com/go-gl/mathgl/mgl32"
 	"github.com/ronoaldo/openvoxel/log"
 )
 
@@ -202,6 +203,16 @@ func (s *Shader) UniformFloats(name string, v ...float32) error {
 	default:
 		return fmt.Errorf("invalid argument count: %v, expected up to 4 values", len(v))
 	}
+	return nil
+}
+
+func (s *Shader) UniformTransformation(name string, model mgl32.Mat4) error {
+	if s.program == nil {
+		return shaderNotLinkedError
+	}
+
+	modelUniform := gl.GetUniformLocation(*s.program, gl.Str(name+"\x00"))
+	gl.UniformMatrix4fv(modelUniform, 1, false, &model[0])
 	return nil
 }
 
@@ -425,8 +436,8 @@ func NewTexture(path string) (t *Texture, err error) {
 
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT)
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT)
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
 
 	gl.TexImage2D(gl.TEXTURE_2D,
 		0,
