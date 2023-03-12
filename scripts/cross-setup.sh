@@ -1,6 +1,6 @@
 #!/bin/sh
 
-OPENVOXEL_ARCHS=${OPENVOXEL_ARCHS:-amd64 arm64}
+OPENVOXEL_ARCHS=${OPENVOXEL_ARCHS:-i386 amd64 arm64}
 
 if [ x"$(id -u)" != x"0" ] ; then
     echo "Should be executed as root."

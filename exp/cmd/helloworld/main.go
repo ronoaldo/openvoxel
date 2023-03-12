@@ -1,7 +1,6 @@
 package main
 
 import (
-	"math"
 	"os"
 	"runtime"
 
@@ -11,8 +10,10 @@ import (
 )
 
 var (
-	winWidth  int = 768
-	winHeight int = 768
+	winWidth  int = 800
+	winHeight int = 600
+
+	f = func(i int) float32 { return float32(i) }
 )
 
 func init() {
@@ -35,19 +36,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	vertices := []float32{
-		// positions     // colors      // tex coords
-		+0.5, +0.5, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0, // top right
-		+0.5, -0.5, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, // bottom right
-		-0.5, -0.5, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, // bottom left
-		-0.5, +0.5, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, // top left
-	}
-	indices := []uint32{
-		0, 1, 3, // first triangle
-		1, 2, 3, // second triangle
-	}
-	log.Infof("Rendering Vertices: %#v (indices: %#v)", vertices, indices)
-	window.Scene().AddTriangles(vertices, indices)
+	log.Infof("Rendering cube %v", cube)
+	window.Scene().AddVertices(cube)
 
 	tex, err := render.NewTexture("textures/dirt.png")
 	if err != nil {
@@ -57,16 +47,76 @@ func main() {
 	window.Scene().AddTexture(tex)
 
 	// Main program loop
+	view := transform.Translate(0, 0, -15).Mul4(transform.Rotate(transform.DegToRad(45), 0.5, 1, 0))
+	fov := transform.DegToRad(45)
+	aspect := float32(winWidth) / float32(winHeight)
+	projection := transform.Perspective(fov, aspect, 0.1, 100)
 	for !window.ShouldClose() {
 		t := render.Time()
-		greenValue := math.Sin(t)/2.0 + 0.5
-		shader.UniformFloats("progressiveColor", 0.0, float32(greenValue), 0.0, 1.0)
 
-		ang := transform.RadToDeg(float32(t))
-		shader.UniformTransformation("transform", transform.Rotate(ang))
+		window.Scene().Clear()
 
-		window.Scene().Draw(shader)
+		shader.UniformFloats("renderTime", float32(t))
+		shader.UniformTransformation("projection", projection)
+		shader.UniformTransformation("view", view)
+
+		// Draw 10x10 blocks of dirt
+		for x := -100; x < 100; x++ {
+			for z := -100; z < 100; z++ {
+				model := transform.Translate(f(x), 0, f(z))
+				shader.UniformTransformation("model", model)
+				window.Scene().Draw(shader)
+			}
+		}
+
 		window.SwapBuffers()
 		window.PollEvents()
 	}
 }
+
+var (
+	cube = []float32{
+		// positions       // tex coords
+		-0.5, -0.5, -0.5, 0.0, 0.0,
+		0.5, -0.5, -0.5, 1.0, 0.0,
+		0.5, 0.5, -0.5, 1.0, 1.0,
+		0.5, 0.5, -0.5, 1.0, 1.0,
+		-0.5, 0.5, -0.5, 0.0, 1.0,
+		-0.5, -0.5, -0.5, 0.0, 0.0,
+
+		-0.5, -0.5, 0.5, 0.0, 0.0,
+		0.5, -0.5, 0.5, 1.0, 0.0,
+		0.5, 0.5, 0.5, 1.0, 1.0,
+		0.5, 0.5, 0.5, 1.0, 1.0,
+		-0.5, 0.5, 0.5, 0.0, 1.0,
+		-0.5, -0.5, 0.5, 0.0, 0.0,
+
+		-0.5, 0.5, 0.5, 1.0, 0.0,
+		-0.5, 0.5, -0.5, 1.0, 1.0,
+		-0.5, -0.5, -0.5, 0.0, 1.0,
+		-0.5, -0.5, -0.5, 0.0, 1.0,
+		-0.5, -0.5, 0.5, 0.0, 0.0,
+		-0.5, 0.5, 0.5, 1.0, 0.0,
+
+		0.5, 0.5, 0.5, 1.0, 0.0,
+		0.5, 0.5, -0.5, 1.0, 1.0,
+		0.5, -0.5, -0.5, 0.0, 1.0,
+		0.5, -0.5, -0.5, 0.0, 1.0,
+		0.5, -0.5, 0.5, 0.0, 0.0,
+		0.5, 0.5, 0.5, 1.0, 0.0,
+
+		-0.5, -0.5, -0.5, 0.0, 1.0,
+		0.5, -0.5, -0.5, 1.0, 1.0,
+		0.5, -0.5, 0.5, 1.0, 0.0,
+		0.5, -0.5, 0.5, 1.0, 0.0,
+		-0.5, -0.5, 0.5, 0.0, 0.0,
+		-0.5, -0.5, -0.5, 0.0, 1.0,
+
+		-0.5, 0.5, -0.5, 0.0, 1.0,
+		0.5, 0.5, -0.5, 1.0, 1.0,
+		0.5, 0.5, 0.5, 1.0, 0.0,
+		0.5, 0.5, 0.5, 1.0, 0.0,
+		-0.5, 0.5, 0.5, 0.0, 0.0,
+		-0.5, 0.5, -0.5, 0.0, 1.0,
+	}
+)

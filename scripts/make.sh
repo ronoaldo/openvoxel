@@ -40,6 +40,9 @@ go_build() {
 	echo "** Build failed **"
 }
 
+go_build exp/cmd/helloworld windows 386
 go_build exp/cmd/helloworld windows amd64
+
+go_build exp/cmd/helloworld linux 386
 go_build exp/cmd/helloworld linux amd64
 go_build exp/cmd/helloworld linux arm64

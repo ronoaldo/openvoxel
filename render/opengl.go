@@ -18,7 +18,7 @@ import (
 	"github.com/disintegration/imaging"
 	"github.com/go-gl/gl/v3.3-core/gl"
 	"github.com/go-gl/glfw/v3.3/glfw"
-	"github.com/go-gl/mathgl/mgl32"
+	glm "github.com/go-gl/mathgl/mgl32"
 	"github.com/ronoaldo/openvoxel/log"
 )
 
@@ -160,13 +160,13 @@ func (s *Shader) FragmentShaderFile(path string) *Shader {
 	return s
 }
 
-var shaderNotLinkedError = errors.New("shader: invalid state: uniform called before Link()")
+var errShaderNotLinked = errors.New("shader: invalid state: uniform called before Link()")
 
 // UniformInt adds the provided int value as a GLSL uniform with the given
 // name.  Returns an error if the shader was not linked.
 func (s *Shader) UniformInts(name string, v ...int32) error {
 	if s.program == nil {
-		return shaderNotLinkedError
+		return errShaderNotLinked
 	}
 	loc := gl.GetUniformLocation(*s.program, gl.Str(name+"\x00"))
 	switch len(v) {
@@ -188,7 +188,7 @@ func (s *Shader) UniformInts(name string, v ...int32) error {
 // name.  Returns an error if the program was not linked.
 func (s *Shader) UniformFloats(name string, v ...float32) error {
 	if s.program == nil {
-		return shaderNotLinkedError
+		return errShaderNotLinked
 	}
 	loc := gl.GetUniformLocation(*s.program, gl.Str(name+"\x00"))
 	switch len(v) {
@@ -206,9 +206,9 @@ func (s *Shader) UniformFloats(name string, v ...float32) error {
 	return nil
 }
 
-func (s *Shader) UniformTransformation(name string, model mgl32.Mat4) error {
+func (s *Shader) UniformTransformation(name string, model glm.Mat4) error {
 	if s.program == nil {
-		return shaderNotLinkedError
+		return errShaderNotLinked
 	}
 
 	modelUniform := gl.GetUniformLocation(*s.program, gl.Str(name+"\x00"))
@@ -312,7 +312,8 @@ func (s *Shader) linkProgram(shaders ...uint32) (uint32, error) {
 type Scene struct {
 	vao *uint32
 
-	vbo *uint32
+	vbo     *uint32
+	vboSize int32
 
 	ebo     *uint32
 	eboSize int32
@@ -341,7 +342,6 @@ func (s *Scene) allocateBuffers() {
 	}
 }
 
-// 4
 var sizeOfFloat32 = int(unsafe.Sizeof(float32(0)))
 
 // AddTriangles adds the provided vertices and indices to the current scene.
@@ -353,6 +353,7 @@ func (s *Scene) AddTriangles(vertices []float32, indices []uint32) {
 
 	gl.BindBuffer(gl.ARRAY_BUFFER, *s.vbo)
 	gl.BufferData(gl.ARRAY_BUFFER, len(vertices)*sizeOfFloat32, gl.Ptr(vertices), gl.STATIC_DRAW)
+	s.vboSize += int32(len(vertices))
 
 	gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, *s.ebo)
 	gl.BufferData(gl.ELEMENT_ARRAY_BUFFER, len(indices)*sizeOfFloat32, gl.Ptr(indices), gl.STATIC_DRAW)
@@ -372,8 +373,40 @@ func (s *Scene) AddTriangles(vertices []float32, indices []uint32) {
 	gl.BindVertexArray(0)
 }
 
+func (s *Scene) AddVertices(vertices []float32) {
+	s.allocateBuffers()
+
+	gl.BindVertexArray(*s.vao)
+
+	gl.BindBuffer(gl.ARRAY_BUFFER, *s.vbo)
+	gl.BufferData(gl.ARRAY_BUFFER, len(vertices)*sizeOfFloat32, gl.Ptr(vertices), gl.STATIC_DRAW)
+	s.vboSize += int32(len(vertices)) / 5
+	log.Infof("Adding vertices to scene: vboSize=%v ", s.vboSize)
+
+	// Configure the vertex array attributes
+	// [0] => positions size=3, stride=5*float, offset=0
+	gl.VertexAttribPointer(0, 3, gl.FLOAT, false, 5*4, nil)
+	gl.EnableVertexAttribArray(0)
+
+	// [1] => text coord size=2, stride=5*float, offset=3*float
+	gl.VertexAttribPointerWithOffset(1, 2, gl.FLOAT, false, 5*4, 3*4)
+	gl.EnableVertexAttribArray(1)
+
+	gl.BindVertexArray(0)
+}
+
 func (s *Scene) AddTexture(tex *Texture) {
 	s.tex = tex
+}
+
+func (s *Scene) Clear() {
+	gl.Enable(gl.DEPTH_TEST)
+	if s.clearColor == nil {
+		s.clearColor = color.Black
+	}
+	r, g, b, a := s.clearColor.RGBA()
+	gl.ClearColor(float32(r), float32(g), float32(b), float32(a))
+	gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 }
 
 // Draw calls the underlying driver to render the scene graph on the current
@@ -384,24 +417,16 @@ func (s *Scene) AddTexture(tex *Texture) {
 func (s *Scene) Draw(shader *Shader) {
 	s.allocateBuffers()
 
-	// Clear
-	if s.clearColor == nil {
-		s.clearColor = color.Black
-	}
-	r, g, b, a := s.clearColor.RGBA()
-	gl.ClearColor(float32(r), float32(g), float32(b), float32(a))
-	gl.Clear(gl.COLOR_BUFFER_BIT)
-
 	// TODO: use a default minimal shader program if no other shaders where specified
 	// since OpenGL requires a fragment and a vertex shader at a minimum.
 	if shader != nil {
 		shader.Use()
 	}
 
-	gl.BindVertexArray(*s.vao)
-
-	gl.ActiveTexture(gl.TEXTURE0)
-	gl.BindTexture(gl.TEXTURE_2D, s.tex.tex)
+	if s.tex != nil {
+		gl.ActiveTexture(gl.TEXTURE0)
+		gl.BindTexture(gl.TEXTURE_2D, s.tex.tex)
+	}
 
 	if s.wireFrames {
 		gl.PolygonMode(gl.FRONT_AND_BACK, gl.LINE)
@@ -409,7 +434,12 @@ func (s *Scene) Draw(shader *Shader) {
 		gl.PolygonMode(gl.FRONT_AND_BACK, gl.FILL)
 	}
 
-	gl.DrawElements(gl.TRIANGLES, s.eboSize, gl.UNSIGNED_INT, nil)
+	gl.BindVertexArray(*s.vao)
+	if s.eboSize > 0 {
+		gl.DrawElements(gl.TRIANGLES, s.eboSize, gl.UNSIGNED_INT, nil)
+	} else {
+		gl.DrawArrays(gl.TRIANGLES, 0, s.vboSize)
+	}
 	gl.BindVertexArray(0)
 }
 
