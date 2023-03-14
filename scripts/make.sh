@@ -1,18 +1,10 @@
-#!/bin/sh
+#!/bin/bash
+set -e
+set -o pipefail
+#set -x
 
-_NAME=$(readlink -f $0)
-_DIR=$(dirname $_NAME)
-cd $_DIR/..
-
-echo "Building into $PWD/build ..."
-mkdir -p build
-rm -rvf build/*
-
-if [ x"$DEBUG" = x"true" ] ; then 
-	export GO_BUILD_FLAGS='-x -v'
-	set -x
-fi
-
+# go_build is a helper function to execute the proper Go command passing all the
+# required build flags.
 go_build() {
     export PROG=$1 OS=$2 ARCH=$3
     export OUT="$(basename ${PROG})_${OS}_${ARCH}"
@@ -34,7 +26,8 @@ go_build() {
             esac
         ;;
         js)
-            cp "$(go env GOROOT)/misc/wasm/wasm_exec.js" "build/wasm_exec.js"
+            cp "$(go env GOROOT)/misc/wasm/wasm_exec.js" build
+            cp "${PROG}/index.html" build/${OUT}.html
         ;;
     esac
     env CGO_ENABLED=1 CC=$CC CXX=$CXX GOOS=$GOOS GOARCH=$GOARCH \
@@ -43,9 +36,33 @@ go_build() {
 	echo "** Build failed **"
 }
 
+# Main
+_NAME=$(readlink -f $0)
+_DIR=$(dirname $_NAME)
+cd $_DIR/..
+
+echo "Building into $PWD/build ..."
+mkdir -p build
+rm -rvf build/*
+git status 2>&1 >/dev/null || git config --global --add safe.directory "$PWD"
+
+if [ x"$DEBUG" = x"true" ] ; then 
+    echo "Debug enabled to check 'go build' flags..."
+	export GO_BUILD_FLAGS='-x -v'
+	set -x
+fi
+
+if [ x"$1" = x"--ci" ]; then
+    echo "Setting up CI environment"
+    ./scripts/cross-setup.sh
+    shift
+fi
+
 if [ x"$1" != x"" ]; then
+    # Build a specific OS/ARCH pair
     go_build exp/cmd/helloworld $1 $2
 else
+    # Build all supported OS/ARCH pairs
     go_build exp/cmd/helloworld windows 386
     go_build exp/cmd/helloworld windows amd64
 

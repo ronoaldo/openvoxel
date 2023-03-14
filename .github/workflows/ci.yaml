@@ -8,15 +8,9 @@ jobs:
     steps:
     - name: Clone the Repository
       uses: actions/checkout@v3
-
-    - name: Setup Go
-      uses: actions/setup-go@v3
-
-    - name: Install Cross Compilation Dependencies
-      run: sudo ./scripts/cross-setup.sh
     
-    - name: Cross Build
-      run: ./scripts/make.sh
+    - name: Cross Build using Docker
+      run: ./scripts/docker-run.sh scripts/make.sh --ci
     
     - name: Archive Build Results
       uses: actions/upload-artifact@v3

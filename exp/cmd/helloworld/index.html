@@ -1,10 +1,9 @@
 <html>
 	<head>
-		<title></title>
+		<title>Loading ...</title>
 	</head>
 	<body>
-		<h1>Loading ...</h1>
-		<script src="../../../build/wasm_exec.js"></script>
+		<script src="wasm_exec.js"></script>
 		<script>
 		// Polyfill
 		if (!WebAssembly.instantiateStreaming) {
@@ -14,7 +13,7 @@
 			};
 		}
 		const go = new Go();
-		WebAssembly.instantiateStreaming(fetch("../../../build/helloworld_js_wasm"), go.importObject).then(result => {
+		WebAssembly.instantiateStreaming(fetch("helloworld_js_wasm"), go.importObject).then(result => {
 			go.run(result.instance);
 		});
 		</script>
