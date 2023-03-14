@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"runtime"
+	"time"
 
 	"github.com/ronoaldo/openvoxel/log"
 	"github.com/ronoaldo/openvoxel/render"
@@ -65,19 +66,22 @@ func main() {
 	aspect := float32(winWidth) / float32(winHeight)
 	projection := transform.Perspective(fov, aspect, 0.1, 100)
 	frameCount := int32(0)
+	start := time.Now()
+	lastLog := 0
 	for !window.ShouldClose() {
 		t := render.Time()
 
 		window.Scene().Clear()
 
+		shader.Use()
 		shader.UniformInts("frameCount", frameCount)
 		shader.UniformFloats("renderTime", float32(t))
 		shader.UniformTransformation("projection", projection)
 		shader.UniformTransformation("view", view)
 
 		// Draw 10x10 blocks of dirt
-		for x := -100; x < 100; x++ {
-			for z := -100; z < 100; z++ {
+		for x := -10; x < 10; x++ {
+			for z := -10; z < 10; z++ {
 				model := transform.Translate(f(x), 0, f(z))
 				shader.UniformTransformation("model", model)
 				window.Scene().Draw(shader)
@@ -86,6 +90,15 @@ func main() {
 
 		window.SwapBuffers()
 		window.PollEvents()
+
+		frameCount++
+		elapsedMs := time.Since(start).Milliseconds()
+		elapsedSec := elapsedMs / 1000
+		fps := float32(frameCount) / float32(elapsedSec)
+		if lastLog != int(elapsedSec) {
+			log.Infof("At %d sec, avg FPS %.02f", elapsedSec, fps)
+			lastLog = int(elapsedSec)
+		}
 	}
 }
 

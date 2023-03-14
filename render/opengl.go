@@ -397,10 +397,10 @@ func (s *Scene) AddTexture(tex *Texture) {
 func (s *Scene) Clear() {
 	gl.Enable(gl.DEPTH_TEST)
 	if s.clearColor == nil {
-		s.clearColor = color.Black
+		s.clearColor = BgColor
 	}
 	r, g, b, a := s.clearColor.RGBA()
-	gl.ClearColor(float32(r), float32(g), float32(b), float32(a))
+	gl.ClearColor(float32(r)/255, float32(g)/255, float32(b)/255, float32(a)/255)
 	gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 }
 

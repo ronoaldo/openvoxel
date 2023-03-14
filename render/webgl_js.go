@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"image"
+	"image/color"
 	"image/draw"
 	"syscall/js"
 	"time"
@@ -59,6 +60,9 @@ func NewWindow(width, height int, title string) (w *Window, err error) {
 	// TODO(ronoaldo) error check
 	gl = w.canvas.Call("getContext", "webgl2")
 	w.scene = NewScene()
+
+	requestAnimationFrame()
+
 	return w, nil
 }
 
@@ -70,7 +74,22 @@ func (w *Window) Close() {}
 
 func (w *Window) PollEvents() {}
 
-func (w *Window) SwapBuffers() {}
+var animationFrameLock = make(chan struct{}, 1)
+
+func requestAnimationFrame() {
+	var cb js.Func
+	cb = js.FuncOf(func(this js.Value, args []js.Value) any {
+		animationFrameLock <- struct{}{}
+		cb.Release()
+		return nil
+	})
+	js.Global().Call("requestAnimationFrame", cb)
+}
+
+func (w *Window) SwapBuffers() {
+	<-animationFrameLock
+	requestAnimationFrame()
+}
 
 func (w *Window) Scene() *Scene {
 	return w.scene
@@ -97,7 +116,7 @@ func (s *Shader) FragmentShader(src string) *Shader {
 }
 
 func (s *Shader) UniformInts(name string, v ...int32) error {
-	if s.program.IsNull() {
+	if s.program.IsNull() || s.program.IsUndefined() {
 		return errShaderNotLinked
 	}
 	loc := gl.Call("getUniformLocation", s.program, name)
@@ -117,7 +136,7 @@ func (s *Shader) UniformInts(name string, v ...int32) error {
 }
 
 func (s *Shader) UniformFloats(name string, v ...float32) error {
-	if s.program.IsNull() {
+	if s.program.IsNull() || s.program.IsUndefined() {
 		return errShaderNotLinked
 	}
 	loc := gl.Call("getUniformLocation", s.program, name)
@@ -137,7 +156,7 @@ func (s *Shader) UniformFloats(name string, v ...float32) error {
 }
 
 func (s *Shader) UniformTransformation(name string, t glm.Mat4) error {
-	if s.program.IsNull() {
+	if s.program.IsNull() || s.program.IsUndefined() {
 		return errShaderNotLinked
 	}
 
@@ -210,31 +229,100 @@ func (s *Shader) linkProgram(shaders ...js.Value) (js.Value, error) {
 }
 
 func (s *Shader) Use() {
-	if s.program.IsNull() {
+	if s.program.IsNull() || s.program.IsUndefined() {
 		panic("shader program not linked; call Shader.Link() first")
 	}
 	gl.Call("useProgram", s.program)
 }
 
 type Scene struct {
-	tex *Texture
+	tex        *Texture
+	clearColor color.Color
+	wireFrames bool
+
+	vao js.Value
+
+	vbo     js.Value
+	vboSize int
 }
 
 func NewScene() *Scene {
 	return &Scene{}
 }
 
-func (s *Scene) AddTriangles(vertices []float32, indices []float32) {}
+func (s *Scene) allocateBuffers() {
+	if s.vao.IsNull() || s.vao.IsUndefined() {
+		log.Infof("Allocating buffers ...")
+		s.vao = gl.Call("createVertexArray")
+		s.vbo = gl.Call("createBuffer")
+	}
+}
 
-func (s *Scene) AddVertices(vertices []float32) {}
+func (s *Scene) AddTriangles(vertices []float32, indices []float32) {
+}
+
+func (s *Scene) AddVertices(vertices []float32) {
+	s.allocateBuffers()
+
+	ARRAY_BUFFER := gl.Get("ARRAY_BUFFER").Int()
+	STATIC_DRAW := gl.Get("STATIC_DRAW").Int()
+	GLFLOAT := gl.Get("FLOAT")
+
+	gl.Call("bindVertexArray", s.vao)
+
+	gl.Call("bindBuffer", ARRAY_BUFFER, s.vbo)
+
+	v := toFloat32Array(vertices)
+	s.vboSize += len(vertices)
+	gl.Call("bufferData", ARRAY_BUFFER, v, STATIC_DRAW)
+
+	gl.Call("vertexAttribPointer", 0, 3, GLFLOAT, false, 5*4, 0)
+	gl.Call("enableVertexAttribArray", 0)
+
+	gl.Call("vertexAttribPointer", 1, 2, GLFLOAT, false, 5*4, 3*4)
+	gl.Call("enableVertexAttribArray", 1)
+
+	gl.Call("bindVertexArray", nil)
+}
+
+func toFloat32Array(in []float32) (out js.Value) {
+	out = js.Global().Get("Float32Array").New(len(in))
+	for k, v := range in {
+		out.SetIndex(k, v)
+	}
+	return
+}
 
 func (s *Scene) AddTexture(tex *Texture) {
 	s.tex = tex
 }
 
-func (s *Scene) Clear() {}
+func (s *Scene) Clear() {
+	gl.Call("enable", gl.Get("DEPTH_TEST").Int())
+	if s.clearColor == nil {
+		s.clearColor = BgColor
+	}
+	r, g, b, a := s.clearColor.RGBA()
+	gl.Call("clearColor", float32(r)/255, float32(g)/255, float32(b)/255, float32(a)/255)
+	gl.Call("clear", gl.Get("COLOR_BUFFER_BIT").Int()|gl.Get("DEPTH_BUFFER_BIT").Int())
+}
 
-func (s *Scene) Draw(shader *Shader) {}
+func (s *Scene) Draw(shader *Shader) {
+	s.allocateBuffers()
+
+	if shader != nil {
+		shader.Use()
+	}
+
+	if s.tex != nil {
+		gl.Call("activeTexture", gl.Get("TEXTURE0").Int())
+		gl.Call("bindTexture", gl.Get("TEXTURE_2D").Int(), s.tex.tex)
+	}
+
+	gl.Call("bindVertexArray", s.vao)
+	gl.Call("drawArrays", gl.Get("TRIANGLES").Int(), 0, s.vboSize)
+	gl.Call("bindVertexArray", nil)
+}
 
 type Texture struct {
 	tex    js.Value
