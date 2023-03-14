@@ -13,7 +13,7 @@ jobs:
       uses: actions/setup-go@v3
 
     - name: Install Cross Compilation Dependencies
-      run: ./scripts/cross-setup.sh
+      run: sudo ./scripts/cross-setup.sh
     
     - name: Cross Build
       run: ./scripts/make.sh
