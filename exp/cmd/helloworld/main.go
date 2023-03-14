@@ -7,6 +7,8 @@ import (
 	"github.com/ronoaldo/openvoxel/log"
 	"github.com/ronoaldo/openvoxel/render"
 	"github.com/ronoaldo/openvoxel/transform"
+
+	_ "embed"
 )
 
 var (
@@ -14,6 +16,17 @@ var (
 	winHeight int = 600
 
 	f = func(i int) float32 { return float32(i) }
+)
+
+var (
+	//go:embed shaders/vertex.glsl
+	vertexShaderSrc string
+
+	//go:embed shaders/fragment.glsl
+	fragmentShaderSrc string
+
+	//go:embed textures/dirt.png
+	texDirt []byte
 )
 
 func init() {
@@ -30,7 +43,7 @@ func main() {
 	log.Infof("Rendering Backend: %v", render.Version())
 
 	shader := &render.Shader{}
-	shader.VertexShaderFile("shaders/vertex.glsl").FragmentShaderFile("shaders/fragment.glsl")
+	shader.VertexShader(vertexShaderSrc).FragmentShader(fragmentShaderSrc)
 	if err := shader.Link(); err != nil {
 		log.Warnf("error linking shader program: %v", err)
 		os.Exit(1)
@@ -39,7 +52,7 @@ func main() {
 	log.Infof("Rendering cube %v", cube)
 	window.Scene().AddVertices(cube)
 
-	tex, err := render.NewTexture("textures/dirt.png")
+	tex, err := render.NewTextureFromBytes(texDirt)
 	if err != nil {
 		log.Warnf("Error loading texture: %v", err)
 		os.Exit(1)
@@ -51,11 +64,13 @@ func main() {
 	fov := transform.DegToRad(45)
 	aspect := float32(winWidth) / float32(winHeight)
 	projection := transform.Perspective(fov, aspect, 0.1, 100)
+	frameCount := int32(0)
 	for !window.ShouldClose() {
 		t := render.Time()
 
 		window.Scene().Clear()
 
+		shader.UniformInts("frameCount", frameCount)
 		shader.UniformFloats("renderTime", float32(t))
 		shader.UniformTransformation("projection", projection)
 		shader.UniformTransformation("view", view)

@@ -1,3 +1,5 @@
+//go:build !js
+
 // package render implements OpenGL rendering logic and wrappers.
 package render
 
@@ -8,7 +10,7 @@ import (
 	"image"
 	"image/color"
 	"image/draw"
-	"io/ioutil"
+	"os"
 	"strings"
 	"unsafe"
 
@@ -134,33 +136,31 @@ func (w *Window) Scene() *Scene {
 	return w.scene
 }
 
-// shaderFile is a helper struct that represents a shader file and it's type.
-type shaderFile struct {
-	path       string
+// ShaderFile is a helper struct that represents a shader file and it's type.
+type shaderSource struct {
+	src        string
 	shaderType uint32
 }
 
 // Shader abstracts raw GLSL shader compilation, linking and usage.
 type Shader struct {
-	shaderFiles []shaderFile
+	shaderFiles []shaderSource
 	program     *uint32
 }
 
 // VertexShader appends the provider shader file to the pipeline. This method
 // returns the Shader reference to allow for chaining.
-func (s *Shader) VertexShaderFile(path string) *Shader {
-	s.shaderFiles = append(s.shaderFiles, shaderFile{path, gl.VERTEX_SHADER})
+func (s *Shader) VertexShader(src string) *Shader {
+	s.shaderFiles = append(s.shaderFiles, shaderSource{src, gl.VERTEX_SHADER})
 	return s
 }
 
 // FragmentShader appends the provided shader file to the pipeline. This method
 // returns the Shader reference to allow for chaining.
-func (s *Shader) FragmentShaderFile(path string) *Shader {
-	s.shaderFiles = append(s.shaderFiles, shaderFile{path, gl.FRAGMENT_SHADER})
+func (s *Shader) FragmentShader(src string) *Shader {
+	s.shaderFiles = append(s.shaderFiles, shaderSource{src, gl.FRAGMENT_SHADER})
 	return s
 }
-
-var errShaderNotLinked = errors.New("shader: invalid state: uniform called before Link()")
 
 // UniformInt adds the provided int value as a GLSL uniform with the given
 // name.  Returns an error if the shader was not linked.
@@ -222,12 +222,7 @@ func (s *Shader) UniformTransformation(name string, model glm.Mat4) error {
 func (s *Shader) Link() error {
 	shaders := []uint32{}
 	for _, file := range s.shaderFiles {
-		b, err := ioutil.ReadFile(file.path)
-		if err != nil {
-			return err
-		}
-
-		shaderId, err := s.compileShader(string(b), file.shaderType)
+		shaderId, err := s.compileShader(file.src, file.shaderType)
 		if err != nil {
 			return err
 		}
@@ -445,19 +440,25 @@ func (s *Scene) Draw(shader *Shader) {
 
 type Texture struct {
 	tex    uint32
-	path   string
 	pixels []uint8
 }
 
 func NewTexture(path string) (t *Texture, err error) {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	return NewTextureFromBytes(b)
+}
+
+func NewTextureFromBytes(b []byte) (t *Texture, err error) {
 	// TODO(ronoaldo): check for image cache and return the same texture loaded previously
-	w, h, pixels, err := readImage(path)
+	w, h, pixels, err := decodeImage(b)
 	if err != nil {
 		return nil, err
 	}
 	// Load the texture into OpenGL
 	t = &Texture{
-		path:   path,
 		pixels: pixels,
 	}
 	gl.GenTextures(1, &t.tex)
@@ -482,19 +483,14 @@ func NewTexture(path string) (t *Texture, err error) {
 	return t, nil
 }
 
-func readImage(path string) (w, h int, px []uint8, err error) {
-	b, err := ioutil.ReadFile(path)
-	if err != nil {
-		return 0, 0, nil, err
-	}
-
+func decodeImage(b []byte) (w, h int, px []uint8, err error) {
 	img, ftype, err := image.Decode(bytes.NewReader(b))
 	if err != nil {
 		return 0, 0, nil, err
 	}
 	img = imaging.FlipV(img)
 	w, h = img.Bounds().Size().X, img.Bounds().Size().Y
-	log.Infof("Loaded %v image (%dx%d) from file %v", ftype, w, h, path)
+	log.Infof("Loaded %v image (%dx%d) from %v bytes", ftype, w, h, len(b))
 
 	// Create pixel data from PNG
 	rgba := image.NewRGBA(img.Bounds())

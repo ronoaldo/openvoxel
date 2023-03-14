@@ -20,29 +20,38 @@ go_build() {
 
     export GOOS=$OS GOARCH=$ARCH CC= CXX=
     case $OS in
-        *windows*)
+        windows)
             case $ARCH in
-                *amd64*) export CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++ ;;
-                *386*)   export CC=i686-w64-mingw32-gcc CXX=i686-w64-mingw32-g++ ;;
+                amd64) export CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++ ;;
+                386)   export CC=i686-w64-mingw32-gcc CXX=i686-w64-mingw32-g++ ;;
             esac
         ;;
-        *linux*)
+        linux)
             case $ARCH in
                 386)   export CC=i686-linux-gnu-gcc    CXX=i686-linux-gnu-g++ ;;
                 arm64) export CC=aarch64-linux-gnu-gcc CXX=aarch64-linux-gnu-g++ ;;
                 arm)   export CC=arm-linux-gnueabi-gcc CXX=arm-linux-gnueabi-gcc ;;
             esac
         ;;
+        js)
+            cp "$(go env GOROOT)/misc/wasm/wasm_exec.js" "build/wasm_exec.js"
+        ;;
     esac
     env CGO_ENABLED=1 CC=$CC CXX=$CXX GOOS=$GOOS GOARCH=$GOARCH \
-        go build ${GO_BUILD_FLAGS} -o build/${OUT} ${PROG}/main.go &&\
+        go build ${GO_BUILD_FLAGS} -o build/${OUT} ./${PROG} &&\
 	echo "** Binary created at ${OUT} **" ||\
 	echo "** Build failed **"
 }
 
-go_build exp/cmd/helloworld windows 386
-go_build exp/cmd/helloworld windows amd64
+if [ x"$1" != x"" ]; then
+    go_build exp/cmd/helloworld $1 $2
+else
+    go_build exp/cmd/helloworld windows 386
+    go_build exp/cmd/helloworld windows amd64
 
-go_build exp/cmd/helloworld linux 386
-go_build exp/cmd/helloworld linux amd64
-go_build exp/cmd/helloworld linux arm64
+    go_build exp/cmd/helloworld linux 386
+    go_build exp/cmd/helloworld linux amd64
+    go_build exp/cmd/helloworld linux arm64
+
+    go_build exp/cmd/helloworld js wasm
+fi
