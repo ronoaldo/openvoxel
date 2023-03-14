@@ -273,7 +273,8 @@ func (s *Scene) AddVertices(vertices []float32) {
 	gl.Call("bindBuffer", ARRAY_BUFFER, s.vbo)
 
 	v := toFloat32Array(vertices)
-	s.vboSize += len(vertices)
+	s.vboSize += len(vertices) / 5
+	log.Infof("s.vboSize %d/%d [%d bytes/item]", len(vertices), v.Length(), v.Get("BYTES_PER_ELEMENT").Int())
 	gl.Call("bufferData", ARRAY_BUFFER, v, STATIC_DRAW)
 
 	gl.Call("vertexAttribPointer", 0, 3, GLFLOAT, false, 5*4, 0)
