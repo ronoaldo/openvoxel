@@ -13,8 +13,8 @@ import (
 )
 
 var (
-	winWidth  int = 800
-	winHeight int = 600
+	winWidth  int = 1024
+	winHeight int = 768
 
 	f = func(i int) float32 { return float32(i) }
 )
@@ -61,7 +61,7 @@ func main() {
 	window.Scene().AddTexture(tex)
 
 	// Main program loop
-	view := transform.Translate(0, 0, -15).Mul4(transform.Rotate(transform.DegToRad(45), 0.5, 1, 0))
+	view := transform.Translate(0, 0, -20).Mul4(transform.Rotate(transform.DegToRad(25), 0.5, 0, 0))
 	fov := transform.DegToRad(45)
 	aspect := float32(winWidth) / float32(winHeight)
 	projection := transform.Perspective(fov, aspect, 0.1, 100)
@@ -79,7 +79,7 @@ func main() {
 		shader.UniformTransformation("projection", projection)
 		shader.UniformTransformation("view", view)
 
-		// Draw 10x10 blocks of dirt
+		// Draw 10x10 blocks of dirt at bottom
 		for x := -10; x < 10; x++ {
 			for z := -10; z < 10; z++ {
 				model := transform.Translate(f(x), 0, f(z))
@@ -87,6 +87,12 @@ func main() {
 				window.Scene().Draw(shader)
 			}
 		}
+
+		// Draw a rotating cube above them
+		ang := transform.DegToRad(45) * float32(t)
+		model := transform.Translate(0, 3, 0).Mul4(transform.Rotate(ang, 0, 1, 0))
+		shader.UniformTransformation("model", model)
+		window.Scene().Draw(shader)
 
 		window.SwapBuffers()
 		window.PollEvents()
@@ -96,7 +102,7 @@ func main() {
 		elapsedSec := elapsedMs / 1000
 		fps := float32(frameCount) / float32(elapsedSec)
 		if lastLog != int(elapsedSec) {
-			log.Infof("At %d sec, avg FPS %.02f", elapsedSec, fps)
+			log.Infof("At %d sec, avg FPS %.02f; t=%v", elapsedSec, fps, t)
 			lastLog = int(elapsedSec)
 		}
 	}

@@ -26,7 +26,14 @@ import (
 
 // Version returns the OpengGL version as reported by the driver.
 func Version() string {
-	return gl.GoStr(gl.GetString(gl.VERSION))
+	param := func(p uint32) string {
+		return gl.GoStr(gl.GetString(p))
+	}
+	version := "OpenGL Version " + param(gl.VERSION) +
+		"; Shading Language: " + param(gl.SHADING_LANGUAGE_VERSION) +
+		"; Vendor: " + param(gl.VENDOR) +
+		"; Renderer: " + param(gl.RENDERER)
+	return version
 }
 
 // Time returns the time in miliseconds since the window was initialized.
@@ -166,7 +173,7 @@ func (s *Shader) FragmentShader(src string) *Shader {
 // name.  Returns an error if the shader was not linked.
 func (s *Shader) UniformInts(name string, v ...int32) error {
 	if s.program == nil {
-		return errShaderNotLinked
+		return ErrShaderNotLinked
 	}
 	loc := gl.GetUniformLocation(*s.program, gl.Str(name+"\x00"))
 	switch len(v) {
@@ -188,7 +195,7 @@ func (s *Shader) UniformInts(name string, v ...int32) error {
 // name.  Returns an error if the program was not linked.
 func (s *Shader) UniformFloats(name string, v ...float32) error {
 	if s.program == nil {
-		return errShaderNotLinked
+		return ErrShaderNotLinked
 	}
 	loc := gl.GetUniformLocation(*s.program, gl.Str(name+"\x00"))
 	switch len(v) {
@@ -208,7 +215,7 @@ func (s *Shader) UniformFloats(name string, v ...float32) error {
 
 func (s *Shader) UniformTransformation(name string, model glm.Mat4) error {
 	if s.program == nil {
-		return errShaderNotLinked
+		return ErrShaderNotLinked
 	}
 
 	modelUniform := gl.GetUniformLocation(*s.program, gl.Str(name+"\x00"))

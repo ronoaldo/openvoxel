@@ -16,22 +16,26 @@ import (
 )
 
 func Version() string {
-	if gl.IsUndefined() {
+	if gl.IsUndefined() || gl.IsNull() {
 		return "WebGL Not Initialized"
 	}
 
-	params := []string{"VERSION", "SHADING_LANGUAGE_VERSION", "VENDOR", "RENDERER"}
-	version := ""
-	for _, p := range params {
-		version = version + "\n" + gl.Call("getParameter", gl.Get(p).Int()).String()
+	param := func(p string) string {
+		return gl.Call("getParameter", gl.Get(p).Int()).String()
 	}
+
+	version := param("VERSION") +
+		"; Shading Language: " + param("SHADING_LANGUAGE_VERSION") +
+		"; Vendor: " + param("VENDOR") +
+		"; Renderer: " + param("RENDERER")
 	return version
 }
 
-var initializedAt time.Time
+var initializedAt time.Time = time.Now()
 
 func Time() float64 {
-	return float64(time.Since(initializedAt) / time.Millisecond)
+	ellapsedMills := float64(time.Since(initializedAt) / time.Millisecond)
+	return ellapsedMills / 1000.0
 }
 
 type Window struct {
@@ -117,7 +121,7 @@ func (s *Shader) FragmentShader(src string) *Shader {
 
 func (s *Shader) UniformInts(name string, v ...int32) error {
 	if s.program.IsNull() || s.program.IsUndefined() {
-		return errShaderNotLinked
+		return ErrShaderNotLinked
 	}
 	loc := gl.Call("getUniformLocation", s.program, name)
 	switch len(v) {
@@ -137,7 +141,7 @@ func (s *Shader) UniformInts(name string, v ...int32) error {
 
 func (s *Shader) UniformFloats(name string, v ...float32) error {
 	if s.program.IsNull() || s.program.IsUndefined() {
-		return errShaderNotLinked
+		return ErrShaderNotLinked
 	}
 	loc := gl.Call("getUniformLocation", s.program, name)
 	switch len(v) {
@@ -157,7 +161,7 @@ func (s *Shader) UniformFloats(name string, v ...float32) error {
 
 func (s *Shader) UniformTransformation(name string, t glm.Mat4) error {
 	if s.program.IsNull() || s.program.IsUndefined() {
-		return errShaderNotLinked
+		return ErrShaderNotLinked
 	}
 
 	loc := gl.Call("getUniformLocation", s.program, name)
@@ -331,7 +335,7 @@ type Texture struct {
 }
 
 func NewTexture(path string) (t *Texture, err error) {
-	return nil, errNotImplemented
+	return nil, ErrNotImplemented
 }
 
 func NewTextureFromBytes(b []byte) (t *Texture, err error) {

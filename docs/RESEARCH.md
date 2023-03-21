@@ -6,3 +6,4 @@
 3. WebGL and OpenGL differences: https://www.khronos.org/webgl/wiki/WebGL_and_OpenGL_Differences
 4. WebGL Spec from Khronos: https://registry.khronos.org/webgl/specs/latest/1.0/#5.8
 5. WebGL Tutorial and API docs from Mozilla: https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API
+6. https://webglfundamentals.org/webgl/lessons/webgl-shadows.html
