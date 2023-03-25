@@ -13,6 +13,7 @@ go_build() {
     export GOOS=$OS GOARCH=$ARCH CC= CXX=
     case $OS in
         windows)
+            export OUT="${OUT}.exe"
             case $ARCH in
                 amd64) export CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++ ;;
                 386)   export CC=i686-w64-mingw32-gcc CXX=i686-w64-mingw32-g++ ;;
@@ -28,6 +29,7 @@ go_build() {
         js)
             cp "$(go env GOROOT)/misc/wasm/wasm_exec.js" build
             cp "${PROG}/index.html" build/${OUT}.html
+            export OUT="${OUT}.wasm" 
         ;;
     esac
     env CGO_ENABLED=1 CC=$CC CXX=$CXX GOOS=$GOOS GOARCH=$GOARCH \
