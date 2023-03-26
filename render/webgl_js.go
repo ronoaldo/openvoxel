@@ -308,7 +308,7 @@ func (s *Scene) Clear() {
 		s.clearColor = BgColor
 	}
 	r, g, b, a := s.clearColor.RGBA()
-	gl.Call("clearColor", float32(r)/255, float32(g)/255, float32(b)/255, float32(a)/255)
+	gl.Call("clearColor", float32(r)/0xffff, float32(g)/0xffff, float32(b)/0xffff, float32(a)/0xffff)
 	gl.Call("clear", gl.Get("COLOR_BUFFER_BIT").Int()|gl.Get("DEPTH_BUFFER_BIT").Int())
 }
 

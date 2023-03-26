@@ -17,6 +17,7 @@ var (
 	winHeight int = 768
 
 	f = func(i int) float32 { return float32(i) }
+	F = func(f float64) float32 { return float32(f) }
 )
 
 var (
@@ -63,7 +64,7 @@ func main() {
 	// Main program loop
 	view := transform.Translate(0, 0, -20).Mul4(transform.Rotate(transform.DegToRad(25), 0.5, 0, 0))
 	fov := transform.DegToRad(45)
-	aspect := float32(winWidth) / float32(winHeight)
+	aspect := f(winWidth) / f(winHeight)
 	projection := transform.Perspective(fov, aspect, 0.1, 100)
 	frameCount := int32(0)
 	start := time.Now()
@@ -75,7 +76,7 @@ func main() {
 
 		shader.Use()
 		shader.UniformInts("frameCount", frameCount)
-		shader.UniformFloats("renderTime", float32(t))
+		shader.UniformFloats("renderTime", F(t))
 		shader.UniformTransformation("projection", projection)
 		shader.UniformTransformation("view", view)
 
@@ -89,7 +90,7 @@ func main() {
 		}
 
 		// Draw a rotating cube above them
-		ang := transform.DegToRad(45) * float32(t)
+		ang := transform.DegToRad(45) * F(t)
 		model := transform.Translate(0, 3, 0).Mul4(transform.Rotate(ang, 0, 1, 0))
 		shader.UniformTransformation("model", model)
 		window.Scene().Draw(shader)
@@ -98,9 +99,9 @@ func main() {
 		window.PollEvents()
 
 		frameCount++
-		elapsedMs := time.Since(start).Milliseconds()
+		elapsedMs := int(time.Since(start).Milliseconds())
 		elapsedSec := elapsedMs / 1000
-		fps := float32(frameCount) / float32(elapsedSec)
+		fps := float32(frameCount) / f(elapsedSec)
 		if lastLog != int(elapsedSec) {
 			log.Infof("At %d sec, avg FPS %.02f; t=%v", elapsedSec, fps, t)
 			lastLog = int(elapsedSec)

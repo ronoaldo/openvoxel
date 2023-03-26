@@ -346,6 +346,10 @@ func (s *Scene) allocateBuffers() {
 
 var sizeOfFloat32 = int(unsafe.Sizeof(float32(0)))
 
+func (s *Scene) BgColor(c color.Color) {
+	s.clearColor = c
+}
+
 // AddTriangles adds the provided vertices and indices to the current scene.
 func (s *Scene) AddTriangles(vertices []float32, indices []uint32) {
 	log.Infof("Float size: %v", sizeOfFloat32)
@@ -407,7 +411,7 @@ func (s *Scene) Clear() {
 		s.clearColor = BgColor
 	}
 	r, g, b, a := s.clearColor.RGBA()
-	gl.ClearColor(float32(r)/255, float32(g)/255, float32(b)/255, float32(a)/255)
+	gl.ClearColor(float32(r)/0xffff, float32(g)/0xffff, float32(b)/0xffff, float32(a)/0xffff)
 	gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 }
 

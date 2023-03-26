@@ -7,16 +7,30 @@ import (
 )
 
 const (
-	LevelInfo = "INFO"
-	LevelWarn = "WARN"
+	LevelDebug = "DEBUG"
+	LevelInfo  = "INFO"
+	LevelWarn  = "WARNING"
+	LevelError = "ERROR"
 )
 
+// Debugf prints a log message with DEBUG level
+func Debugf(message string, args ...interface{}) {
+	printf(LevelDebug, message, args...)
+}
+
+// Infof prints a log message with INFO level
+func Infof(message string, args ...interface{}) {
+	printf(LevelInfo, message, args...)
+}
+
+// Warnf prints a log message with WARNING level
 func Warnf(message string, args ...interface{}) {
 	printf(LevelWarn, message, args...)
 }
 
-func Infof(message string, args ...interface{}) {
-	printf(LevelInfo, message, args...)
+// Errorf prints a log message with ERROR level
+func Errorf(message string, args ...interface{}) {
+	printf(LevelError, message, args...)
 }
 
 func printf(level, message string, args ...interface{}) {

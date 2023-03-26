@@ -6,6 +6,12 @@
 [voxel](https://en.wikipedia.org/wiki/Voxel) [game
 engine](https://en.wikipedia.org/wiki/Game_engine).
 
+Experimental demo available here:
+
+* [**Webgl** version](https://ronoaldo.github.io/openvoxel/helloworld_js_wasm.html)
+* [**Windows (64 bits)** version](https://ronoaldo.github.io/openvoxel/helloworld_windows_amd64.exe)
+* [**Linux (64 bits)** version](https://ronoaldo.github.io/openvoxel/helloworld_linux_amd64)
+
 ## Development Setup
 
 To start developing, you can use the helper scripts in the `scripts/` folder.
