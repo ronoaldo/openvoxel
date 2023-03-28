@@ -18,7 +18,7 @@ import (
 // Version returns the WebGL version as reported by the driver.
 func Version() string {
 	if gl.IsUndefined() || gl.IsNull() {
-		return "WebGL Not Initialized"
+		return "WebGL Not Initialized."
 	}
 
 	param := func(p string) string {
@@ -44,8 +44,8 @@ type Window struct {
 	canvas js.Value
 	scene  *Scene
 
-	width  int
-	height int
+	Width  int
+	Height int
 }
 
 var document js.Value
@@ -53,8 +53,8 @@ var gl js.Value
 
 func NewWindow(width, height int, title string) (w *Window, err error) {
 	w = &Window{}
-	w.width = width
-	w.height = height
+	w.Width = width
+	w.Height = height
 
 	document = js.Global().Get("document")
 	document.Set("title", title)
