@@ -62,10 +62,11 @@ func main() {
 	window.Scene().AddTexture(tex)
 
 	// Main program loop
-	view := transform.Translate(0, 0, -20).Mul4(transform.Rotate(transform.DegToRad(25), 0.5, 0, 0))
+	view := transform.Chain(
+		transform.Translate(0, 0, -20),
+		transform.Rotate(transform.DegToRad(25), 0.5, 0, 0),
+	)
 	fov := transform.DegToRad(45)
-	aspect := f(winWidth) / f(winHeight)
-	projection := transform.Perspective(fov, aspect, 0.1, 100)
 	frameCount := int32(0)
 	start := time.Now()
 	lastLog := 0
@@ -73,6 +74,8 @@ func main() {
 		t := render.Time()
 
 		window.Scene().Clear()
+		aspect := f(window.Width) / f(window.Height)
+		projection := transform.Perspective(fov, aspect, 0.1, 100)
 
 		shader.Use()
 		shader.UniformInts("frameCount", frameCount)

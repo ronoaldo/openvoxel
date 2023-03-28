@@ -15,6 +15,7 @@ import (
 	"github.com/disintegration/imaging"
 )
 
+// Version returns the WebGL version as reported by the driver.
 func Version() string {
 	if gl.IsUndefined() || gl.IsNull() {
 		return "WebGL Not Initialized"
@@ -33,6 +34,7 @@ func Version() string {
 
 var initializedAt time.Time = time.Now()
 
+// Time returns the time in miliseconds since the window was initialized.
 func Time() float64 {
 	ellapsedMills := float64(time.Since(initializedAt) / time.Millisecond)
 	return ellapsedMills / 1000.0
@@ -239,6 +241,8 @@ func (s *Shader) Use() {
 	gl.Call("useProgram", s.program)
 }
 
+// Scene represents a graph of elements to be drawn on screen by the WebGL
+// driver.
 type Scene struct {
 	tex        *Texture
 	clearColor color.Color
@@ -250,6 +254,7 @@ type Scene struct {
 	vboSize int
 }
 
+// NewScene initializes an empty scene with the proper memory allocations.
 func NewScene() *Scene {
 	return &Scene{}
 }
@@ -262,9 +267,14 @@ func (s *Scene) allocateBuffers() {
 	}
 }
 
+// AddTriangles adds the provided vertices and indices to the current scene.
 func (s *Scene) AddTriangles(vertices []float32, indices []float32) {
 }
 
+// AddVertices adds the provided vertices array to the scene.  The vertices
+// array is expected to be have 5 elements per vertice, where the first three
+// elements represent the x,y,z coordinate and the other two vertices represent
+// the texture coordinate for it.
 func (s *Scene) AddVertices(vertices []float32) {
 	s.allocateBuffers()
 

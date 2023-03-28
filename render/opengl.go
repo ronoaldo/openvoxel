@@ -1,6 +1,5 @@
 //go:build !js
 
-// package render implements OpenGL rendering logic and wrappers.
 package render
 
 import (
@@ -54,16 +53,16 @@ type Window struct {
 	window *glfw.Window
 	scene  *Scene
 
-	width  int
-	height int
+	Width  int
+	Height int
 }
 
 // NewWindow initializes the program window and OpenGL backend.
 func NewWindow(width, height int, title string) (*Window, error) {
 	// Create our wrapper object and retain settings
 	w := &Window{}
-	w.width = width
-	w.height = height
+	w.Width = width
+	w.Height = height
 
 	// Initialize the GLFW window/context
 	if err := glfw.Init(); err != nil {
@@ -108,8 +107,8 @@ func (w *Window) Close() {
 }
 
 func (w *Window) onWindowGeometryChanged(wd *glfw.Window, width, height int) {
-	w.width = width
-	w.height = height
+	w.Width = width
+	w.Height = height
 	gl.Viewport(0, 0, int32(width), int32(height))
 }
 

@@ -1,16 +1,17 @@
 # openvoxel
 
-> This is a work in progress project.
+> This project is a work in progress!
 
-**openvoxel** is an [open source](https://en.wikipedia.org/wiki/Open_source)
-[voxel](https://en.wikipedia.org/wiki/Voxel) [game
-engine](https://en.wikipedia.org/wiki/Game_engine).
+**openvoxel** is an
+[open source](https://en.wikipedia.org/wiki/Open_source)
+[voxel](https://en.wikipedia.org/wiki/Voxel)
+[game engine](https://en.wikipedia.org/wiki/Game_engine).
 
 Experimental demo available here:
 
-* [**Webgl** version](https://ronoaldo.github.io/openvoxel/helloworld_js_wasm.html)
-* [**Windows (64 bits)** version](https://ronoaldo.github.io/openvoxel/helloworld_windows_amd64.exe)
-* [**Linux (64 bits)** version](https://ronoaldo.github.io/openvoxel/helloworld_linux_amd64)
+* [**Browser** version, with WebGL 2.0](https://ronoaldo.github.io/openvoxel/helloworld_js_wasm.html)
+* [**Windows (64 bits)** version, with OpenGL 3.3](https://ronoaldo.github.io/openvoxel/helloworld_windows_amd64.exe)
+* [**Linux (64 bits)** version, with OpenGL 3.3](https://ronoaldo.github.io/openvoxel/helloworld_linux_amd64)
 
 ## Development Setup
 

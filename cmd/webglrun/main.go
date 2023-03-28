@@ -1,3 +1,10 @@
+// The `webglrun` command provides a simple tool to rebuild wasm programs using
+// the scripts/make.sh build helper.
+//
+// The program expects to be executed from the root project folder.  A simple
+// invocation can be executed with:
+//
+//	go run cmd/webglrun/main.go
 package main
 
 import (
