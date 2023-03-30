@@ -24,7 +24,7 @@ func main() {
 	log.Print("Watching for file changes ... ")
 	go watchForChanges()
 
-	_, err := exec.Command("xdg-open", "http://localhost:8080/").CombinedOutput()
+	_, err := exec.Command("xdg-open", "http://localhost:8000/").CombinedOutput()
 	log.Printf("Launching browser (err=%v)", err)
 
 	log.Print("Starting server for wasmrun ...")

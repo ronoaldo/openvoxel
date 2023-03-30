@@ -15,10 +15,12 @@ import (
 var (
 	winWidth  int = 1024
 	winHeight int = 768
-
-	f = func(i int) float32 { return float32(i) }
-	F = func(f float64) float32 { return float32(f) }
 )
+
+// f is a syntax suggar to cast any number to float32
+func f[X int | int32 | int64 | uint | uint32 | uint64 | float64](i X) float32 {
+	return float32(i)
+}
 
 var (
 	//go:embed shaders/vertex.glsl
@@ -37,7 +39,7 @@ func init() {
 
 func main() {
 	log.Infof("Initializing main window")
-	window, err := render.NewWindow(winWidth, winHeight, "LearnOpenGL.com")
+	window, err := render.NewWindow(winWidth, winHeight, "openvoxel.net [Demo]")
 	if err != nil {
 		log.Warnf("Unable to open new window: %v", err)
 	}
@@ -62,10 +64,6 @@ func main() {
 	window.Scene().AddTexture(tex)
 
 	// Main program loop
-	view := transform.Chain(
-		transform.Translate(0, 0, -20),
-		transform.Rotate(transform.DegToRad(25), 0.5, 0, 0),
-	)
 	fov := transform.DegToRad(45)
 	frameCount := int32(0)
 	start := time.Now()
@@ -74,14 +72,14 @@ func main() {
 		t := render.Time()
 
 		window.Scene().Clear()
+
 		aspect := f(window.Width) / f(window.Height)
 		projection := transform.Perspective(fov, aspect, 0.1, 100)
 
 		shader.Use()
 		shader.UniformInts("frameCount", frameCount)
-		shader.UniformFloats("renderTime", F(t))
+		shader.UniformFloats("renderTime", f(t))
 		shader.UniformTransformation("projection", projection)
-		shader.UniformTransformation("view", view)
 
 		// Draw 10x10 blocks of dirt at bottom
 		for x := -10; x < 10; x++ {
@@ -93,8 +91,11 @@ func main() {
 		}
 
 		// Draw a rotating cube above them
-		ang := transform.DegToRad(45) * F(t)
-		model := transform.Translate(0, 3, 0).Mul4(transform.Rotate(ang, 0, 1, 0))
+		ang := transform.DegToRad(45) * f(t)
+		model := transform.Chain(
+			transform.Translate(0, 3, 0),
+			transform.Rotate(ang, 0, 1, 0),
+		)
 		shader.UniformTransformation("model", model)
 		window.Scene().Draw(shader)
 
@@ -104,7 +105,7 @@ func main() {
 		frameCount++
 		elapsedMs := int(time.Since(start).Milliseconds())
 		elapsedSec := elapsedMs / 1000
-		fps := float32(frameCount) / f(elapsedSec)
+		fps := f(frameCount) / f(elapsedSec)
 		if lastLog != int(elapsedSec) {
 			log.Infof("At %d sec, avg FPS %.02f; t=%v", elapsedSec, fps, t)
 			lastLog = int(elapsedSec)

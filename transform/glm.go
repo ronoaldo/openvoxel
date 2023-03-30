@@ -44,3 +44,7 @@ func Chain(operations ...glm.Mat4) glm.Mat4 {
 	}
 	return op
 }
+
+func LookAt(eye, center, up glm.Vec3) glm.Mat4 {
+	return glm.LookAtV(glm.Vec3(eye), glm.Vec3(center), glm.Vec3(up))
+}

@@ -9,6 +9,7 @@ import (
 	"image"
 	"image/color"
 	"image/draw"
+	"math"
 	"os"
 	"strings"
 	"unsafe"
@@ -21,7 +22,18 @@ import (
 	"github.com/go-gl/glfw/v3.3/glfw"
 	glm "github.com/go-gl/mathgl/mgl32"
 	"github.com/ronoaldo/openvoxel/log"
+	"github.com/ronoaldo/openvoxel/transform"
 )
+
+// f is a syntax suggar to cast any number to float32
+func f[X int | int32 | int64 | uint | uint32 | uint64 | float64](i X) float32 {
+	return float32(i)
+}
+
+// f is a syntax suggar to cast any number to float64
+func f6[X int | int32 | int64 | uint | uint32 | uint64 | float32](i X) float64 {
+	return float64(i)
+}
 
 // Version returns the OpengGL version as reported by the driver.
 func Version() string {
@@ -40,6 +52,21 @@ func Time() float64 {
 	return glfw.GetTime()
 }
 
+type Camera struct {
+	pos   glm.Vec3
+	front glm.Vec3
+	up    glm.Vec3
+}
+
+func NewCamera() (c *Camera) {
+	c = &Camera{
+		pos:   glm.Vec3{-20, 4, 3},
+		front: glm.Vec3{0, 0, -1},
+		up:    glm.Vec3{0, 1, 0},
+	}
+	return
+}
+
 // Window handles the basic GUI and Input event handling.
 //
 // Window must be created using NewWindow, which will load all the required
@@ -55,6 +82,12 @@ type Window struct {
 
 	Width  int
 	Height int
+
+	pressedKeys  map[glfw.Key]struct{}
+	firstMouse   bool
+	lastX, lastY float64
+	yaw, pitch   float64
+	sensitivity  float64
 }
 
 // NewWindow initializes the program window and OpenGL backend.
@@ -82,13 +115,18 @@ func NewWindow(width, height int, title string) (*Window, error) {
 	}
 	w.window = window
 	w.window.MakeContextCurrent()
+	w.window.SetInputMode(glfw.CursorMode, glfw.CursorDisabled)
+
 	// Register GLFW callbacks
 	w.window.SetFramebufferSizeCallback(w.onWindowGeometryChanged)
 	w.window.SetKeyCallback(w.onKeyPressed)
+	w.window.SetCursorPosCallback(w.onCursorPosChange)
 
 	// Initialize OpenGL
 	gl.Init()
 	w.scene = NewScene()
+	w.pressedKeys = make(map[glfw.Key]struct{})
+	w.sensitivity = 0.05
 
 	return w, nil
 }
@@ -124,6 +162,87 @@ func (w *Window) onKeyPressed(wd *glfw.Window, key glfw.Key, scancode int, actio
 		log.Infof("F10 key pressed. Flipping wireframe mode...")
 		w.scene.wireFrames = !w.scene.wireFrames
 	}
+
+	if key == glfw.KeyF1 && action == glfw.Press {
+		w.sensitivity = w.sensitivity + 0.1
+		log.Infof("F1 key pressed, increasing sensitivity to: %v", w.sensitivity)
+	}
+	if key == glfw.KeyF2 && action == glfw.Press {
+		w.sensitivity = w.sensitivity - 0.1
+		log.Infof("F1 key pressed, decreasing sensitivity to: %v", w.sensitivity)
+	}
+	if w.sensitivity > 5 || w.sensitivity < 0 {
+		w.sensitivity = 0.05
+		log.Infof("FIX sensitivity too crazy, adjusted to: %v", w.sensitivity)
+	}
+
+	switch action {
+	case glfw.Press:
+		w.pressedKeys[key] = struct{}{}
+	case glfw.Release:
+		delete(w.pressedKeys, key)
+	}
+
+	cam := w.scene.cam
+	cameraSpeed := f(0.5)
+
+	// Movement handling
+	if _, ok := w.pressedKeys[glfw.KeyW]; ok {
+		cam.pos = cam.pos.Add(cam.front.Mul(cameraSpeed))
+		log.Infof("Key W => Moving forward: cam=%#v", cam)
+	}
+	if _, ok := w.pressedKeys[glfw.KeyS]; ok {
+		cam.pos = cam.pos.Sub(cam.front.Mul(cameraSpeed))
+		log.Infof("Key S => Moving backward: cam=%#v", w.scene.cam)
+	}
+	if _, ok := w.pressedKeys[glfw.KeyA]; ok {
+		cam.pos = cam.pos.Sub(
+			cam.front.Cross(cam.up).Normalize().Mul(cameraSpeed),
+		)
+		log.Infof("Key A => Moving left: cam=%#v", w.scene.cam)
+	}
+	if _, ok := w.pressedKeys[glfw.KeyD]; ok {
+		cam.pos = cam.pos.Add(
+			cam.front.Cross(cam.up).Normalize().Mul(cameraSpeed),
+		)
+		log.Infof("Key D => Moving right: cam=%#v", w.scene.cam)
+	}
+}
+
+func (w *Window) onCursorPosChange(wd *glfw.Window, xpos, ypos float64) {
+	if w.firstMouse {
+		w.lastX = xpos
+		w.lastY = ypos
+		w.firstMouse = false
+	}
+
+	xoffset := xpos - w.lastX
+	yoffset := w.lastY - ypos
+	w.lastX = xpos
+	w.lastY = ypos
+
+	xoffset *= w.sensitivity
+	yoffset *= w.sensitivity
+
+	w.yaw += xoffset
+	w.pitch += yoffset
+
+	if w.pitch > 89.0 {
+		w.pitch = 89.0
+	}
+	if w.pitch < -89.0 {
+		w.pitch = -89.0
+	}
+
+	yaw := f6(glm.DegToRad(f(w.yaw)))
+	pitch := f6(glm.DegToRad(f(w.pitch)))
+
+	direction := glm.Vec3{
+		f(math.Cos(yaw) * math.Cos(pitch)),
+		f(math.Sin(pitch)),
+		f(math.Sin(yaw) * math.Cos(pitch)),
+	}
+	w.scene.cam.front = direction.Normalize()
 }
 
 // PoolEvents listen to any window/input events to be passed to the input callbacks.
@@ -311,6 +430,8 @@ func (s *Shader) linkProgram(shaders ...uint32) (uint32, error) {
 // Scene represents a graph of elements to be drawn on screen by the OpenGL
 // driver.
 type Scene struct {
+	cam *Camera
+
 	vao *uint32
 
 	vbo     *uint32
@@ -327,7 +448,9 @@ type Scene struct {
 
 // NewScene initializes an empty scene with the proper memory allocations.
 func NewScene() *Scene {
-	s := &Scene{}
+	s := &Scene{
+		cam: NewCamera(),
+	}
 	s.allocateBuffers()
 	return s
 }
@@ -425,7 +548,11 @@ func (s *Scene) Draw(shader *Shader) {
 	// TODO: use a default minimal shader program if no other shaders where specified
 	// since OpenGL requires a fragment and a vertex shader at a minimum.
 	if shader != nil {
-		shader.Use()
+		// Camera position changing
+		view := transform.LookAt(
+			s.cam.pos, s.cam.pos.Add(s.cam.front), s.cam.up,
+		)
+		shader.UniformTransformation("view", view)
 	}
 
 	if s.tex != nil {
