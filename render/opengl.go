@@ -30,8 +30,8 @@ func f[X int | int32 | int64 | uint | uint32 | uint64 | float64](i X) float32 {
 	return float32(i)
 }
 
-// f is a syntax suggar to cast any number to float64
-func f6[X int | int32 | int64 | uint | uint32 | uint64 | float32](i X) float64 {
+// F is a syntax suggar to cast any number to float64
+func F[X int | int32 | int64 | uint | uint32 | uint64 | float32](i X) float64 {
 	return float64(i)
 }
 
@@ -83,7 +83,12 @@ type Window struct {
 	Width  int
 	Height int
 
-	pressedKeys  map[glfw.Key]struct{}
+	// Keyboard helpers
+	pressedKeys map[glfw.Key]struct{}
+	deltaTime   float64
+	lastFrame   float64
+
+	// Mouse helpers
 	firstMouse   bool
 	lastX, lastY float64
 	yaw, pitch   float64
@@ -116,6 +121,7 @@ func NewWindow(width, height int, title string) (*Window, error) {
 	w.window = window
 	w.window.MakeContextCurrent()
 	w.window.SetInputMode(glfw.CursorMode, glfw.CursorDisabled)
+	w.window.SetInputMode(glfw.StickyKeysMode, glfw.True)
 
 	// Register GLFW callbacks
 	w.window.SetFramebufferSizeCallback(w.onWindowGeometryChanged)
@@ -164,11 +170,11 @@ func (w *Window) onKeyPressed(wd *glfw.Window, key glfw.Key, scancode int, actio
 	}
 
 	if key == glfw.KeyF1 && action == glfw.Press {
-		w.sensitivity = w.sensitivity + 0.1
+		w.sensitivity = w.sensitivity + 0.05
 		log.Infof("F1 key pressed, increasing sensitivity to: %v", w.sensitivity)
 	}
 	if key == glfw.KeyF2 && action == glfw.Press {
-		w.sensitivity = w.sensitivity - 0.1
+		w.sensitivity = w.sensitivity - 0.05
 		log.Infof("F1 key pressed, decreasing sensitivity to: %v", w.sensitivity)
 	}
 	if w.sensitivity > 5 || w.sensitivity < 0 {
@@ -184,7 +190,7 @@ func (w *Window) onKeyPressed(wd *glfw.Window, key glfw.Key, scancode int, actio
 	}
 
 	cam := w.scene.cam
-	cameraSpeed := f(0.5)
+	cameraSpeed := f(10 * w.deltaTime)
 
 	// Movement handling
 	if _, ok := w.pressedKeys[glfw.KeyW]; ok {
@@ -193,19 +199,19 @@ func (w *Window) onKeyPressed(wd *glfw.Window, key glfw.Key, scancode int, actio
 	}
 	if _, ok := w.pressedKeys[glfw.KeyS]; ok {
 		cam.pos = cam.pos.Sub(cam.front.Mul(cameraSpeed))
-		log.Infof("Key S => Moving backward: cam=%#v", w.scene.cam)
+		log.Infof("Key S => Moving backward: cam=%#v", cam)
 	}
 	if _, ok := w.pressedKeys[glfw.KeyA]; ok {
 		cam.pos = cam.pos.Sub(
 			cam.front.Cross(cam.up).Normalize().Mul(cameraSpeed),
 		)
-		log.Infof("Key A => Moving left: cam=%#v", w.scene.cam)
+		log.Infof("Key A => Moving left: cam=%#v", cam)
 	}
 	if _, ok := w.pressedKeys[glfw.KeyD]; ok {
 		cam.pos = cam.pos.Add(
 			cam.front.Cross(cam.up).Normalize().Mul(cameraSpeed),
 		)
-		log.Infof("Key D => Moving right: cam=%#v", w.scene.cam)
+		log.Infof("Key D => Moving right: cam=%#v", cam)
 	}
 }
 
@@ -234,8 +240,8 @@ func (w *Window) onCursorPosChange(wd *glfw.Window, xpos, ypos float64) {
 		w.pitch = -89.0
 	}
 
-	yaw := f6(glm.DegToRad(f(w.yaw)))
-	pitch := f6(glm.DegToRad(f(w.pitch)))
+	yaw := F(glm.DegToRad(f(w.yaw)))
+	pitch := F(glm.DegToRad(f(w.pitch)))
 
 	direction := glm.Vec3{
 		f(math.Cos(yaw) * math.Cos(pitch)),
@@ -249,6 +255,9 @@ func (w *Window) onCursorPosChange(wd *glfw.Window, xpos, ypos float64) {
 func (w *Window) PollEvents() {
 	glfw.PollEvents()
 
+	currentFrame := Time()
+	w.deltaTime = currentFrame - w.lastFrame
+	w.lastFrame = currentFrame
 }
 
 // SwapBuffers will flip the drawing buffer to the visible buffer on the display.

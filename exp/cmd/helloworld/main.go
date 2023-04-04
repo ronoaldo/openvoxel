@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	winWidth  int = 1024
+	winWidth  int = 1920
 	winHeight int = 768
 )
 
