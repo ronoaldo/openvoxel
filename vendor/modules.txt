@@ -20,8 +20,8 @@ github.com/go-gl/glfw/v3.3/glfw/glfw/src
 # github.com/go-gl/mathgl v1.0.0
 ## explicit; go 1.11
 github.com/go-gl/mathgl/mgl32
-# golang.org/x/image v0.10.0
-## explicit; go 1.12
+# golang.org/x/image v0.18.0
+## explicit; go 1.18
 golang.org/x/image/bmp
 golang.org/x/image/ccitt
 golang.org/x/image/math/f32
