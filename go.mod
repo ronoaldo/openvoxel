@@ -1,6 +1,6 @@
 module github.com/ronoaldo/openvoxel
 
-go 1.20
+go 1.25.0
 
 require (
 	github.com/disintegration/imaging v1.6.2
@@ -11,6 +11,6 @@ require (
 )
 
 require (
-	golang.org/x/image v0.18.0 // indirect
+	golang.org/x/image v0.38.0 // indirect
 	golang.org/x/sys v0.5.0 // indirect
 )
